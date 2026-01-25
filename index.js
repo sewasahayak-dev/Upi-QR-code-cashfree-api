@@ -55,7 +55,7 @@ export default {
               .container {
                   background: #ffffff;
                   width: 100%;
-                  max-width: 450px; /* Slightly wider for embedded payment */
+                  max-width: 450px; 
                   border-radius: 24px;
                   box-shadow: 0 20px 40px rgba(0,0,0,0.08);
                   overflow: hidden;
@@ -74,10 +74,8 @@ export default {
               
               .form-body { padding: 30px 24px; transition: all 0.3s ease; }
               
-              /* Hidden class to toggle views */
               .hidden { display: none !important; }
 
-              /* Payment Container inside our page */
               #payment-container {
                   width: 100%;
                   min-height: 400px;
@@ -154,7 +152,7 @@ export default {
               <div id="input-section" class="form-body">
                   <div class="qr-hint">
                       <svg class="qr-icon" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
                       </svg>
                       <div class="qr-text">
                           Tap <strong>Pay Now</strong> to load the payment options directly here.
@@ -201,12 +199,10 @@ export default {
                       return;
                   }
 
-                  // UI Change: Button loading state
                   btn.disabled = true;
                   btn.innerHTML = '<span class="loader"></span> Processing...';
 
                   try {
-                      // 1. Create Order
                       const res = await fetch("/create-order", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
@@ -219,18 +215,14 @@ export default {
                           throw new Error(data.message || data.error || "Order creation failed");
                       }
 
-                      // 2. Hide Form, Show Payment Container
                       document.getElementById('input-section').classList.add('hidden');
                       document.getElementById('payment-section').classList.remove('hidden');
 
-                      // 3. Render Cashfree Component INSIDE our container
-                      // Yeh step magic karta hai: URL change nahi hoga, form wahi dikhega
                       let components = cashfree.create("payment", { 
                           paymentSessionId: data.payment_session_id,
                           returnUrl: window.location.origin + "/?order_id={order_id}"
                       });
                       
-                      // Mount the payment component into our div
                       components.mount("#payment-container");
 
                   } catch (err) {
@@ -272,9 +264,9 @@ export default {
                 customer_email: "raj.bazaarika@example.com"
             },
             order_meta: {
-                // Ensure the return URL comes back to YOUR worker
-                return_url: \`https://\${url.hostname}/?order_id={order_id}\`,
-                payment_methods: "upi" // Restrict to UPI
+                // FIXED: Removed backslashes here
+                return_url: `https://${url.hostname}/?order_id={order_id}`,
+                payment_methods: "upi"
             }
         };
 
