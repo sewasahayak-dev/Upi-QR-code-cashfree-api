@@ -2,240 +2,288 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ==========================================
-    // 1. FRONTEND: Payment Form & Status Page
-    // ==========================================
-    if (url.pathname === "/" && request.method === "GET") {
-      const status = url.searchParams.get("status");
+    // ------------------------------------------------------------------
+    // 1. PAYMENT RETURN/SUCCESS PAGE
+    // ------------------------------------------------------------------
+    if (url.pathname === "/" && request.method === "GET" && url.searchParams.get("order_id")) {
       const orderId = url.searchParams.get("order_id");
-
-      // --- Payment Success/Failure Screen ---
-      if (status) {
-        const isSuccess = status === "success";
-        const color = isSuccess ? "#10b981" : "#ef4444";
-        const msg = isSuccess ? "Payment Successful!" : "Payment Failed";
-        const icon = isSuccess 
-          ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />' 
-          : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />';
-
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Payment Status</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f8fafc; margin: 0; }
-              .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; }
-              .icon-box { width: 80px; height: 80px; background: ${isSuccess ? '#dcfce7' : '#fee2e2'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
-              svg { width: 40px; height: 40px; color: ${color}; }
-              h2 { margin: 10px 0; color: #1e293b; }
-              p { color: #64748b; margin-bottom: 30px; font-size: 14px; }
-              .order-id { background: #f1f5f9; padding: 8px; border-radius: 6px; font-family: monospace; margin-bottom: 20px; display: inline-block; }
-              button { background: #2563eb; color: white; border: none; padding: 15px 30px; border-radius: 12px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <div class="icon-box">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  ${icon}
-                </svg>
-              </div>
-              <h2>${msg}</h2>
-              <div class="order-id">Order: ${orderId || 'N/A'}</div>
-              <button onclick="window.location.href='/'">Make Another Payment</button>
-            </div>
-          </body>
-          </html>
-        `, { headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-
-      // --- Main Payment Form (Clean & Simple) ---
-      return new Response(`
+      const html = `
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Sewa Sahayak Pay</title>
-          <style>
-            * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-            .container { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); width: 100%; max-width: 420px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { font-size: 24px; color: #0f172a; margin: 0 0 8px 0; }
-            .header p { color: #64748b; font-size: 14px; margin: 0; }
-            .input-group { margin-bottom: 24px; }
-            label { display: block; margin-bottom: 8px; color: #334155; font-size: 14px; font-weight: 600; }
-            input { width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; font-size: 18px; outline: none; transition: all 0.3s; background: #f8fafc; }
-            input:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-            button { width: 100%; padding: 18px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 16px; font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2); display: flex; justify-content: center; align-items: center; gap: 10px; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3); }
-            button:active { transform: translateY(0); }
-            button:disabled { opacity: 0.7; cursor: wait; }
-            .error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 12px; font-size: 14px; margin-top: 20px; display: none; text-align: center; border: 1px solid #fecaca; }
-            .badge { display: inline-flex; align-items: center; background: #ecfdf5; color: #059669; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
-          </style>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Status - Sewa Sahayak</title>
+            <style>
+                body { font-family: sans-serif; background: #f0fdf4; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%; width: 400px; }
+                .icon { width: 80px; height: 80px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: white; font-size: 40px; }
+                h1 { color: #15803d; margin: 0 0 10px; }
+                p { color: #64748b; margin-bottom: 25px; }
+                button { background: #22c55e; color: white; border: none; padding: 12px 30px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+            </style>
         </head>
         <body>
-          <div class="container">
-            <div class="header">
-              <div class="badge">SECURE PAYMENT</div>
-              <h1>Sewa Sahayak</h1>
-              <p>Enter details to generate QR Code</p>
+            <div class="card">
+                <div class="icon">✓</div>
+                <h1>Payment Successful!</h1>
+                <p>Order ID: ${orderId}<br>Thank you for using Sewa Sahayak.</p>
+                <button onclick="window.location.href='/'">Make Another Payment</button>
             </div>
-            
-            <div class="input-group">
-              <label>Amount (₹)</label>
-              <input type="number" id="amount" value="1" min="1" placeholder="0.00">
-            </div>
-            
-            <div class="input-group">
-              <label>Phone Number</label>
-              <input type="tel" id="phone" maxlength="10" placeholder="10-digit mobile number">
-            </div>
+        </body>
+        </html>`;
+      return new Response(html, { headers: { "content-type": "text/html" } });
+    }
 
-            <button id="payBtn" onclick="processPayment()">
-              Generate QR Code
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-            </button>
-            
-            <div id="error" class="error"></div>
+    // ------------------------------------------------------------------
+    // 2. MAIN PAYMENT PAGE (UI)
+    // ------------------------------------------------------------------
+    if (url.pathname === "/" && request.method === "GET") {
+      const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Sewa Sahayak Payment</title>
+          <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+              body { background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+              
+              .container {
+                  background: #ffffff;
+                  width: 100%;
+                  max-width: 420px;
+                  border-radius: 24px;
+                  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+                  overflow: hidden;
+                  position: relative;
+              }
+              
+              .header {
+                  background: #4f46e5;
+                  padding: 30px 24px;
+                  text-align: center;
+                  color: white;
+              }
+              .header h2 { font-size: 22px; font-weight: 700; margin-bottom: 5px; }
+              .header p { font-size: 14px; opacity: 0.9; }
+              
+              .form-body { padding: 30px 24px; }
+              
+              .input-group { margin-bottom: 20px; }
+              .label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+              
+              .input-wrapper {
+                  position: relative;
+                  background: #f9fafb;
+                  border: 2px solid #e5e7eb;
+                  border-radius: 14px;
+                  transition: all 0.3s;
+              }
+              .input-wrapper:focus-within { border-color: #4f46e5; background: #fff; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+              
+              input {
+                  width: 100%;
+                  padding: 16px;
+                  border: none;
+                  background: transparent;
+                  font-size: 16px;
+                  font-weight: 500;
+                  color: #1f2937;
+                  outline: none;
+              }
+              
+              /* QR Code Hint */
+              .qr-hint {
+                  background: #eff6ff;
+                  border: 1px dashed #3b82f6;
+                  border-radius: 12px;
+                  padding: 12px;
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  margin-bottom: 24px;
+              }
+              .qr-icon { width: 32px; height: 32px; flex-shrink: 0; }
+              .qr-text { font-size: 12px; color: #1e40af; line-height: 1.4; }
+              
+              button {
+                  width: 100%;
+                  padding: 18px;
+                  background: #4f46e5;
+                  color: white;
+                  border: none;
+                  border-radius: 14px;
+                  font-size: 16px;
+                  font-weight: 700;
+                  cursor: pointer;
+                  transition: transform 0.1s;
+                  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+              }
+              button:active { transform: scale(0.98); }
+              button:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; }
+              
+              .loader {
+                  width: 20px; height: 20px; border: 3px solid #fff; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; margin-right: 10px; vertical-align: middle;
+              }
+              @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+              .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #9ca3af; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <div class="header">
+                  <h2>Sewa Sahayak</h2>
+                  <p>Secure Instant Payment</p>
+              </div>
+              
+              <div class="form-body">
+                  <div class="qr-hint">
+                      <svg class="qr-icon" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> <rect x="3" y="3" width="7" height="7" stroke-width="2"/>
+                          <rect x="14" y="3" width="7" height="7" stroke-width="2"/>
+                          <rect x="3" y="14" width="7" height="7" stroke-width="2"/>
+                      </svg>
+                      <div class="qr-text">
+                          Select <strong>UPI QR</strong> on the next screen to scan and pay instantly.
+                      </div>
+                  </div>
+
+                  <div class="input-group">
+                      <label class="label">Amount (INR)</label>
+                      <div class="input-wrapper">
+                          <input type="number" id="amount" placeholder="Enter Amount" value="1">
+                      </div>
+                  </div>
+                  
+                  <div class="input-group">
+                      <label class="label">Phone Number</label>
+                      <div class="input-wrapper">
+                          <input type="tel" id="phone" placeholder="999XXXXXXX" maxlength="10">
+                      </div>
+                  </div>
+                  
+                  <button id="payBtn" onclick="initiatePayment()">
+                      Pay Now
+                  </button>
+                  
+                  <div class="footer">Secured by Cashfree Payments</div>
+              </div>
           </div>
 
           <script>
-            async function processPayment() {
-              const btn = document.getElementById('payBtn');
-              const errorDiv = document.getElementById('error');
-              const amount = document.getElementById('amount').value;
-              const phone = document.getElementById('phone').value;
+              const cashfree = Cashfree({ mode: "production" }); // Make sure this is "production"
 
-              errorDiv.style.display = 'none';
-              
-              if (!amount || amount < 1) {
-                showError("Please enter a valid amount (Min ₹1)");
-                return;
+              async function initiatePayment() {
+                  const amount = document.getElementById('amount').value;
+                  const phone = document.getElementById('phone').value;
+                  const btn = document.getElementById('payBtn');
+                  
+                  if(!amount || !phone || phone.length !== 10) {
+                      alert("Please enter valid amount and 10-digit phone number");
+                      return;
+                  }
+
+                  // UI Loading State
+                  btn.disabled = true;
+                  btn.innerHTML = '<span class="loader"></span> Processing...';
+
+                  try {
+                      // 1. Create Order on Backend
+                      const res = await fetch("/create-order", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ amount, phone })
+                      });
+                      
+                      const data = await res.json();
+                      
+                      if(!res.ok || !data.payment_session_id) {
+                          throw new Error(data.message || data.error || "Order creation failed");
+                      }
+
+                      // 2. Open Cashfree Checkout (Handles QR Code display)
+                      await cashfree.checkout({
+                          paymentSessionId: data.payment_session_id,
+                          redirectTarget: "_self" // Opens in same tab
+                      });
+
+                  } catch (err) {
+                      console.error(err);
+                      alert("Payment Error: " + err.message);
+                      btn.disabled = false;
+                      btn.innerHTML = 'Pay Now';
+                  }
               }
-              if (!phone || phone.length !== 10) {
-                showError("Please enter a valid 10-digit phone number");
-                return;
-              }
-
-              // Loading Animation
-              const originalContent = btn.innerHTML;
-              btn.innerHTML = "Generating Link...";
-              btn.disabled = true;
-
-              try {
-                const res = await fetch("/create-order", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ amount, phone })
-                });
-                
-                const data = await res.json();
-                
-                if (!data.success) {
-                  throw new Error(data.message || "Connection failed");
-                }
-                
-                // --- DIRECT REDIRECT TO CASHFREE (QR CODE PAGE) ---
-                window.location.href = data.payment_link;
-                
-              } catch (err) {
-                showError(err.message);
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-              }
-            }
-
-            function showError(msg) {
-              const el = document.getElementById('error');
-              el.innerText = msg;
-              el.style.display = 'block';
-            }
           </script>
-        </body>
-        </html>
-      `, { headers: { "content-type": "text/html; charset=utf-8" } });
+      </body>
+      </html>
+      `;
+      return new Response(html, { headers: { "content-type": "text/html" } });
     }
 
-    // ==========================================
-    // 2. BACKEND: Create Order API (Smart Auto-Detect)
-    // ==========================================
+    // ------------------------------------------------------------------
+    // 3. API: CREATE ORDER (Backend)
+    // ------------------------------------------------------------------
     if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
         
-        // Get keys from Cloudflare Settings
+        // --- SECRETS FROM ENV ---
+        // Make sure these are set in your Worker Variables!
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
 
         if (!APP_ID || !SECRET_KEY) {
-          throw new Error("API Keys missing in Cloudflare settings");
+            throw new Error("API Keys are missing in Environment Variables");
         }
 
-        // --- MAGIC FIX: Check if using TEST keys or LIVE keys ---
-        const isTestKey = APP_ID.startsWith("TEST");
-        const baseUrl = isTestKey ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
+        const uniqueId = Date.now().toString();
         
-        const orderId = `ORD_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        
-        // Prepare Cashfree Data
         const payload = {
-          order_id: orderId,
-          order_amount: parseFloat(body.amount),
-          order_currency: "INR",
-          customer_details: {
-            customer_id: `CUST_${Date.now()}`,
-            customer_phone: body.phone,
-            customer_name: "Customer"
-          },
-          order_meta: {
-            return_url: `https://${url.hostname}/?order_id=${orderId}&status=success`,
-            notify_url: `https://${url.hostname}/webhook`
-          }
+            order_id: "ORD_" + uniqueId,
+            order_amount: parseFloat(body.amount),
+            order_currency: "INR",
+            customer_details: {
+                customer_id: "CUST_" + uniqueId,
+                customer_phone: body.phone,
+                customer_email: "raj.bazaarika@example.com" // Placeholder email
+            },
+            order_meta: {
+                return_url: \`https://\${url.hostname}/?order_id={order_id}\`
+            }
         };
 
-        // Call Cashfree API
-        const cfResponse = await fetch(`${baseUrl}/orders`, {
-          method: "POST",
-          headers: {
-            "x-client-id": APP_ID,
-            "x-client-secret": SECRET_KEY,
-            "x-api-version": "2023-08-01",
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
+        const cfRes = await fetch("https://api.cashfree.com/pg/orders", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-client-id": APP_ID,
+                "x-client-secret": SECRET_KEY,
+                "x-api-version": "2023-08-01"
+            },
+            body: JSON.stringify(payload)
         });
 
-        const data = await cfResponse.json();
-
-        if (!cfResponse.ok) {
-          throw new Error(data.message || "Failed to create order");
-        }
-
-        // --- SMART LINK GENERATION ---
-        // Test Keys -> Sandbox Link
-        // Live Keys -> Real Payment Link
-        let paymentLink = data.payment_link; 
+        const data = await cfRes.json();
         
-        // Fallback if direct link isn't provided (Rare, but safety first)
-        if(!paymentLink) {
-             const checkoutBase = isTestKey ? "https://payments-test.cashfree.com" : "https://payments.cashfree.com";
-             paymentLink = `${checkoutBase}/order/#${data.payment_session_id}`;
+        if (!cfRes.ok) {
+            return new Response(JSON.stringify({ error: data.message }), { status: 400 });
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          payment_link: paymentLink
-        }), { headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify(data), { 
+            headers: { "Content-Type": "application/json" } 
+        });
 
-      } catch (error) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: error.message 
-        }), { headers: { "content-type": "application/json" } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { 
+            status: 500, 
+            headers: { "Content-Type": "application/json" } 
+        });
       }
     }
 
