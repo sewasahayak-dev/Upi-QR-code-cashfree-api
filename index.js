@@ -15,16 +15,21 @@ export default {
           <style>
               /* --- RESET & BASE --- */
               * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-              body { 
+              body, html { 
+                  margin: 0; padding: 0; 
+                  height: 100%; width: 100%;
                   font-family: 'Inter', sans-serif; 
-                  background: #f8f9fa; 
-                  margin: 0; 
-                  padding: 0;
-                  height: 100vh;
-                  height: 100dvh; /* Mobile Fix */
+                  background: #f8f9fa;
+                  overflow: hidden; /* Prevent body scroll */
+              }
+
+              /* --- APP CONTAINER (Holds Input UI) --- */
+              #app-container {
                   display: flex;
                   flex-direction: column;
-                  overflow: hidden;
+                  height: 100%;
+                  width: 100%;
+                  transition: opacity 0.3s ease;
               }
 
               /* --- HEADER --- */
@@ -36,6 +41,7 @@ export default {
                   align-items: center;
                   justify-content: space-between;
                   border-bottom: 1px solid #f1f5f9;
+                  flex-shrink: 0; /* Header shrink nahi hoga */
               }
               .brand { font-size: 20px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
               .secure-badge { 
@@ -43,12 +49,13 @@ export default {
                   font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px; 
               }
 
-              /* --- CONTENT (Scrollable) --- */
+              /* --- CONTENT AREA --- */
               .content {
                   flex: 1;
                   padding: 24px;
-                  overflow-y: auto; /* Agar content jyada ho to scroll ho */
-                  padding-bottom: 100px; /* Button ke liye jagah */
+                  overflow-y: auto;
+                  display: flex;
+                  flex-direction: column;
               }
 
               .input-group { margin-bottom: 24px; }
@@ -59,7 +66,7 @@ export default {
                   border: 1.5px solid #e2e8f0;
                   border-radius: 16px;
                   padding: 16px;
-                  display: flex; align-items: center; transition: all 0.2s ease;
+                  display: flex; align-items: center;
                   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
               }
               .input-wrapper:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
@@ -69,18 +76,13 @@ export default {
               input { border: none; background: transparent; width: 100%; font-size: 18px; font-weight: 600; color: #0f172a; outline: none; }
               input::placeholder { color: #cbd5e1; }
 
-              /* --- STICKY FOOTER BUTTON (FIXED AT BOTTOM) --- */
+              /* --- BOTTOM BUTTON AREA --- */
               .footer {
-                  position: fixed;
-                  bottom: 0;
-                  left: 0;
-                  width: 100%;
                   padding: 20px 24px;
                   padding-bottom: max(20px, env(safe-area-inset-bottom));
                   background: #ffffff;
                   border-top: 1px solid #f1f5f9;
-                  z-index: 50;
-                  box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+                  flex-shrink: 0;
               }
 
               button {
@@ -99,46 +101,61 @@ export default {
               button:active { transform: scale(0.98); }
               button:disabled { background: #cbd5e1; box-shadow: none; }
 
-              /* --- FULL SCREEN OVERLAY --- */
+              /* --- PAYMENT OVERLAY (FORCE FULL SCREEN) --- */
               #payment-overlay {
-                  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                  background: #ffffff; z-index: 99999; display: none;
+                  position: fixed; 
+                  top: 0; 
+                  left: 0; 
+                  width: 100%; 
+                  height: 100%;
+                  background: #ffffff; 
+                  z-index: 99999; 
+                  display: none;
+              }
+              
+              /* FORCE IFRAME TO FILL SCREEN */
+              #payment-overlay iframe {
+                  width: 100% !important;
+                  height: 100% !important;
+                  border: none !important;
+                  display: block !important;
               }
           </style>
       </head>
       <body>
 
-          <div class="app-header" id="header">
-              <div class="brand">Sewa Sahayak</div>
-              <div class="secure-badge">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 6c1.4 0 2.8 1.1 2.8 2.5V11h.6c.66 0 1.2.54 1.2 1.2v5.6c0 .66-.54 1.2-1.2 1.2H8.6c-.66 0-1.2-.54-1.2-1.2v-5.6c0-.66.54-1.2 1.2-1.2h.6V9.5C9.2 8.1 10.6 7 12 7zm0 1c-.83 0-1.5.67-1.5 1.5V11h3V9.5c0-.83-.67-1.5-1.5-1.5z"/></svg>
-                  SECURE
-              </div>
-          </div>
-
-          <div class="content" id="main-content">
-              <div class="input-group">
-                  <div class="label">Payment Amount</div>
-                  <div class="input-wrapper">
-                      <svg class="icon" viewBox="0 0 24 24"><path d="M17 6V4H6v2h3.5c1.302 0 2.401.838 2.815 2H6v2h6.315A2.995 2.995 0 0 1 9.5 12H6v2.414L11.586 20h2.828l-6-6H9.5a5.007 5.007 0 0 0 4.898-4H17V8h-2.602a4.933 4.933 0 0 0-.924-2H17z"/></svg>
-                      <input type="number" id="amount" placeholder="0" value="1" inputmode="decimal" />
+          <div id="app-container">
+              <div class="app-header">
+                  <div class="brand">Sewa Sahayak</div>
+                  <div class="secure-badge">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 6c1.4 0 2.8 1.1 2.8 2.5V11h.6c.66 0 1.2.54 1.2 1.2v5.6c0 .66-.54 1.2-1.2 1.2H8.6c-.66 0-1.2-.54-1.2-1.2v-5.6c0-.66.54-1.2 1.2-1.2h.6V9.5C9.2 8.1 10.6 7 12 7zm0 1c-.83 0-1.5.67-1.5 1.5V11h3V9.5c0-.83-.67-1.5-1.5-1.5z"/></svg>
+                      SECURE
                   </div>
               </div>
 
-              <div class="input-group">
-                  <div class="label">Mobile Number</div>
-                  <div class="input-wrapper">
-                      <svg class="icon" viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+              <div class="content">
+                  <div class="input-group">
+                      <div class="label">Payment Amount</div>
+                      <div class="input-wrapper">
+                          <svg class="icon" viewBox="0 0 24 24"><path d="M17 6V4H6v2h3.5c1.302 0 2.401.838 2.815 2H6v2h6.315A2.995 2.995 0 0 1 9.5 12H6v2.414L11.586 20h2.828l-6-6H9.5a5.007 5.007 0 0 0 4.898-4H17V8h-2.602a4.933 4.933 0 0 0-.924-2H17z"/></svg>
+                          <input type="number" id="amount" placeholder="0" value="1" inputmode="decimal" />
+                      </div>
+                  </div>
+
+                  <div class="input-group">
+                      <div class="label">Mobile Number</div>
+                      <div class="input-wrapper">
+                          <svg class="icon" viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
                       <input type="tel" id="phone" placeholder="9999999999" value="9999999999" maxlength="10" inputmode="numeric" />
                   </div>
               </div>
-          </div>
 
-          <div class="footer" id="footer">
-              <button onclick="startNativePayment()" id="pay-btn">
-                  Proceed to Pay
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </button>
+              <div class="footer">
+                  <button onclick="startNativePayment()" id="pay-btn">
+                      Proceed to Pay
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </button>
+              </div>
           </div>
 
           <div id="payment-overlay"></div>
@@ -151,8 +168,8 @@ export default {
                   const amount = document.getElementById("amount").value;
                   const phone = document.getElementById("phone").value;
                   const btn = document.getElementById("pay-btn");
+                  const appContainer = document.getElementById("app-container");
                   const overlay = document.getElementById("payment-overlay");
-                  const uiElements = [document.getElementById("header"), document.getElementById("main-content"), document.getElementById("footer")];
 
                   if(!amount || !phone) return alert("Please fill details");
 
@@ -160,6 +177,7 @@ export default {
                   btn.disabled = true;
 
                   try {
+                      // 1. Create Order
                       const res = await fetch("/create-order", {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ amount, phone })
@@ -167,20 +185,26 @@ export default {
                       const data = await res.json();
                       if (!data.payment_session_id) throw new Error(data.message || "Order Failed");
 
-                      uiElements.forEach(el => el.style.display = 'none');
+                      // 2. Hide Input UI Completely
+                      appContainer.style.display = 'none';
+                      
+                      // 3. Show Overlay
                       overlay.style.display = 'block';
 
+                      // 4. Start Cashfree Checkout
                       cashfree.checkout({
                           paymentSessionId: data.payment_session_id,
                           redirectTarget: overlay,
                           appearance: { theme: "light" }
                       });
+
                   } catch (e) {
                       alert("Error: " + e.message);
                       btn.innerHTML = 'Proceed to Pay';
                       btn.disabled = false;
-                      uiElements.forEach(el => el.style.display = 'flex'); // Header wapis flex me layen
-                      document.getElementById("footer").style.display = 'block'; // Footer block
+                      
+                      // Show UI Back if Error
+                      appContainer.style.display = 'flex';
                       overlay.style.display = 'none';
                   }
               }
@@ -191,7 +215,7 @@ export default {
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
 
-    // Backend Same Rahega
+    // Backend Logic (No Changes Needed)
     if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
