@@ -2,29 +2,45 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
 
-    if (url.pathname === "/api/create" && req.method === "POST")
+    if (url.pathname === "/api/create" && req.method === "POST") {
       return createOrder(req, env, url);
+    }
 
-    if (url.pathname === "/pay")
+    if (url.pathname === "/pay" && req.method === "GET") {
       return paymentUI(url);
+    }
 
-    if (url.pathname === "/webhook/cashfree")
-      return cashfreeWebhook(req, env);
-
-    if (url.pathname === "/api/status")
+    if (url.pathname === "/api/status" && req.method === "GET") {
       return checkStatus(url, env);
+    }
+
+    if (url.pathname === "/webhook/cashfree" && req.method === "POST") {
+      return cashfreeWebhook(req, env);
+    }
 
     return new Response("Not Found", { status: 404 });
   }
 };
 
-/* ---------------- CREATE ORDER ---------------- */
+/* =========================================================
+   CREATE ORDER (SERVER SIDE – SAFE)
+========================================================= */
 async function createOrder(req, env, url) {
-  const { amount, phone } = await req.json();
-  const oid = "ORD_" + crypto.randomUUID();
+  const body = await req.json();
+  const amount = Number(body.amount);
+  const phone = body.phone;
+
+  if (!amount || amount < 1 || !phone) {
+    return Response.json(
+      { error: "Invalid amount or phone" },
+      { status: 400 }
+    );
+  }
+
+  const orderId = "ORD_" + crypto.randomUUID();
 
   const payload = {
-    order_id: oid,
+    order_id: orderId,
     order_amount: amount,
     order_currency: "INR",
     customer_details: {
@@ -32,17 +48,17 @@ async function createOrder(req, env, url) {
       customer_phone: phone
     },
     order_meta: {
-      return_url: `${url.origin}/pay?oid=${oid}`
+      return_url: `${url.origin}/pay?oid=${orderId}`
     }
   };
 
   const res = await fetch("https://api.cashfree.com/pg/orders", {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       "x-client-id": env.CASHFREE_APP_ID,
       "x-client-secret": env.CASHFREE_SECRET_KEY,
-      "x-api-version": "2023-08-01",
-      "Content-Type": "application/json"
+      "x-api-version": "2023-08-01"
     },
     body: JSON.stringify(payload)
   });
@@ -51,25 +67,27 @@ async function createOrder(req, env, url) {
   return Response.json(data);
 }
 
-/* ---------------- PAYMENT PAGE ---------------- */
+/* =========================================================
+   PAYMENT PAGE (LIVE MODE)
+========================================================= */
 function paymentUI(url) {
-  const oid = url.searchParams.get("oid");
+  const orderId = url.searchParams.get("oid");
 
   return new Response(`
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Pay Now</title>
+  <title>Secure Payment</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 </head>
 <body>
-  <h3>Processing Payment...</h3>
+  <h3>Redirecting to Secure Payment...</h3>
 
   <script>
     const cf = Cashfree({ mode: "production" });
 
-    fetch("/api/status?order_id=${oid}")
+    fetch("/api/status?order_id=${orderId}")
       .then(res => res.json())
       .then(data => {
         if (!data.payment_session_id) {
@@ -80,6 +98,9 @@ function paymentUI(url) {
         cf.create("payment", {
           paymentSessionId: data.payment_session_id
         }).mount("body");
+      })
+      .catch(() => {
+        alert("Something went wrong");
       });
   </script>
 </body>
@@ -89,24 +110,45 @@ function paymentUI(url) {
   });
 }
 
-/* ---------------- WEBHOOK ---------------- */
-async function cashfreeWebhook(req, env) {
-  // TODO: Verify HMAC signature
-  // TODO: Update DB / KV / Durable Object
-  return new Response("OK");
+/* =========================================================
+   CHECK ORDER STATUS (SERVER SIDE)
+========================================================= */
+async function checkStatus(url, env) {
+  const orderId = url.searchParams.get("order_id");
+
+  if (!orderId) {
+    return Response.json(
+      { error: "Missing order_id" },
+      { status: 400 }
+    );
+  }
+
+  const res = await fetch(
+    `https://api.cashfree.com/pg/orders/${orderId}`,
+    {
+      headers: {
+        "x-client-id": env.CASHFREE_APP_ID,
+        "x-client-secret": env.CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01"
+      }
+    }
+  );
+
+  const data = await res.json();
+  return Response.json(data);
 }
 
-/* ---------------- STATUS CHECK ---------------- */
-async function checkStatus(url, env) {
-  const oid = url.searchParams.get("order_id");
+/* =========================================================
+   WEBHOOK (SOURCE OF TRUTH – MUST USE)
+========================================================= */
+async function cashfreeWebhook(req, env) {
+  const rawBody = await req.text();
 
-  const r = await fetch(`https://api.cashfree.com/pg/orders/${oid}`, {
-    headers: {
-      "x-client-id": env.CASHFREE_APP_ID,
-      "x-client-secret": env.CASHFREE_SECRET_KEY,
-      "x-api-version": "2023-08-01"
-    }
-  });
+  // 🔐 TODO: HMAC signature verification here (recommended)
+  // const signature = req.headers.get("x-webhook-signature");
 
-  return Response.json(await r.json());
+  // Payment success example:
+  // payment_status === "SUCCESS"
+
+  return new Response("OK");
 }
