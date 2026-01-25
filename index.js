@@ -2,41 +2,115 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ================= 1. FRONTEND: GUI PAGE =================
+    // ================= 1. FRONTEND: PRO GUI PAGE =================
     if (url.pathname === "/" && request.method === "GET") {
       const html = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Sewa Sahayak Pay</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Sewa Sahayak Payment</title>
           <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
           <style>
-              body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-              .card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 420px; overflow: hidden; }
-              .header { padding: 20px; background: #6c5ce7; color: white; text-align: center; }
-              h2 { margin: 0; font-size: 22px; }
+              /* --- PRO CSS STYLES --- */
+              body { 
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+                  background: #f5f7fa; 
+                  display: flex; 
+                  justify-content: center; 
+                  align-items: center; 
+                  min-height: 100vh; 
+                  margin: 0; 
+                  padding: 10px;
+                  box-sizing: border-box;
+              }
               
-              .form-box { padding: 20px; }
-              input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-              button { width: 100%; padding: 14px; background: #00b894; color: white; border: none; border-radius: 8px; font-size: 16px; margin-top: 10px; cursor: pointer; font-weight: bold; }
-              button:disabled { background: #ccc; }
+              .card { 
+                  background: white; 
+                  border-radius: 20px; 
+                  box-shadow: 0 10px 40px rgba(0,0,0,0.08); 
+                  width: 100%; 
+                  max-width: 450px; 
+                  overflow: hidden; 
+                  transition: all 0.3s ease;
+                  position: relative;
+              }
 
-              /* Payment Frame (Jahan Cashfree load hoga) */
-              #payment-frame { width: 100%; height: 500px; border: none; display: none; }
+              .header { 
+                  background: linear-gradient(135deg, #6c5ce7, #a29bfe); 
+                  color: white; 
+                  padding: 25px 20px; 
+                  text-align: center; 
+                  border-radius: 0 0 20px 20px;
+              }
+              .header h2 { margin: 0; font-size: 22px; font-weight: 700; }
+              .header small { font-size: 13px; opacity: 0.9; }
+
+              .form-box { padding: 25px; }
+              
+              .input-group { margin-bottom: 15px; text-align: left; }
+              .input-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; display: block; margin-left: 5px; }
+              
+              input { 
+                  width: 100%; 
+                  padding: 16px; 
+                  border: 1px solid #eee; 
+                  border-radius: 12px; 
+                  font-size: 16px; 
+                  box-sizing: border-box; 
+                  background: #f9f9f9; 
+                  outline: none; 
+                  transition: 0.2s;
+              }
+              input:focus { border-color: #6c5ce7; background: #fff; box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1); }
+
+              button { 
+                  width: 100%; 
+                  padding: 18px; 
+                  background: #6c5ce7; 
+                  color: white; 
+                  border: none; 
+                  border-radius: 12px; 
+                  font-size: 16px; 
+                  margin-top: 10px; 
+                  cursor: pointer; 
+                  font-weight: bold; 
+                  box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+                  transition: transform 0.1s;
+              }
+              button:active { transform: scale(0.98); }
+              button:disabled { background: #b2bec3; box-shadow: none; }
+
+              /* Payment Frame (Hidden initially) */
+              #payment-frame { 
+                  width: 100%; 
+                  height: 650px; /* Taller height for mobile */
+                  border: none; 
+                  display: none; 
+              }
+
+              /* Loader */
+              .loader { border: 3px solid #f3f3f3; border-top: 3px solid #6c5ce7; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
           </style>
       </head>
       <body>
-          <div class="card">
-              <div class="header">
+          <div class="card" id="main-card">
+              <div class="header" id="top-header">
                   <h2>Sewa Sahayak</h2>
-                  <small>Secure Payments</small>
+                  <small>Secure Checkout</small>
               </div>
               
               <div class="form-box" id="input-section">
-                  <input type="number" id="amount" placeholder="Amount (₹)" value="1" />
-                  <input type="tel" id="phone" placeholder="Phone Number" value="9999999999" />
-                  <button onclick="startPayment()" id="pay-btn">Pay Now</button>
+                  <div class="input-group">
+                      <label class="input-label">AMOUNT (₹)</label>
+                      <input type="number" id="amount" placeholder="Ex: 10" value="1" />
+                  </div>
+                  <div class="input-group">
+                      <label class="input-label">PHONE NUMBER</label>
+                      <input type="tel" id="phone" placeholder="Ex: 9999999999" value="9999999999" />
+                  </div>
+                  <button onclick="startPayment()" id="pay-btn">Proceed to Pay</button>
               </div>
 
               <div id="payment-frame"></div>
@@ -45,6 +119,7 @@ export default {
           <script>
               let cashfree;
               try {
+                  // Initialize Cashfree
                   cashfree = Cashfree({ mode: "production" });
               } catch(e) { console.error(e); }
 
@@ -54,14 +129,17 @@ export default {
                   const btn = document.getElementById("pay-btn");
                   const frame = document.getElementById("payment-frame");
                   const inputSec = document.getElementById("input-section");
+                  const header = document.getElementById("top-header");
+                  const mainCard = document.getElementById("main-card");
 
-                  if(!amount || !phone) return alert("Fill all details");
+                  if(!amount || !phone) return alert("Please fill amount and phone");
 
-                  btn.innerText = "Processing...";
+                  // UI Change: Loading State
+                  btn.innerHTML = '<div class="loader"></div> Processing...';
                   btn.disabled = true;
 
                   try {
-                      // 1. Create Order (Standard API)
+                      // 1. Create Order
                       const res = await fetch("/create-order", {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ amount, phone })
@@ -70,11 +148,17 @@ export default {
 
                       if (!data.payment_session_id) throw new Error(data.message || "Order Failed");
 
-                      // 2. Embed Cashfree UI
-                      inputSec.style.display = "none"; // Form chhupao
-                      frame.style.display = "block";   // Frame dikhao
+                      // 2. UI Transformation for Payment
+                      inputSec.style.display = "none";  // Hide Inputs
+                      header.style.display = "none";    // Hide Header to give full space
+                      frame.style.display = "block";    // Show Frame
+                      
+                      // Remove padding to let Cashfree take full width
+                      mainCard.style.padding = "0";     
+                      mainCard.style.maxWidth = "500px"; // Slightly wider for payment page
+                      mainCard.style.borderRadius = "0"; // Square corners for mobile feel (optional)
 
-                      // Ye Cashfree ke page ko DIV ke andar load kar dega
+                      // 3. Load Cashfree Checkout
                       cashfree.checkout({
                           paymentSessionId: data.payment_session_id,
                           redirectTarget: document.getElementById("payment-frame"),
@@ -85,7 +169,7 @@ export default {
 
                   } catch (e) {
                       alert("Error: " + e.message);
-                      btn.innerText = "Try Again";
+                      btn.innerText = "Proceed to Pay";
                       btn.disabled = false;
                   }
               }
@@ -101,13 +185,13 @@ export default {
       try {
         const body = await request.json();
         
-        // ENV Variables (Settings se keys)
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
         
+        if(!APP_ID || !SECRET_KEY) return new Response(JSON.stringify({ message: "Keys Missing" }), { status: 500 });
+
         const orderId = "ORD_" + Date.now();
         
-        // ✅ STANDARD ORDER API (Ye Block Nahi Hoti)
         const cfResponse = await fetch("https://api.cashfree.com/pg/orders", {
             method: "POST",
             headers: {
