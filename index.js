@@ -2,7 +2,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ================= 1. FRONTEND: PAYMENT PAGE =================
+    // ================= 1. FRONTEND: GUI PAGE =================
     if (url.pathname === "/" && request.method === "GET") {
       const html = `
       <!DOCTYPE html>
@@ -59,7 +59,6 @@ export default {
                   btn.disabled = true;
 
                   try {
-                      // Call our Backend API
                       const res = await fetch("/create-link", {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ amount, phone, remark })
@@ -68,15 +67,15 @@ export default {
 
                       if (!data.link_url) throw new Error(data.message || "Failed to create link");
 
-                      // Success! Show QR
                       formSec.style.display = "none";
                       qrArea.style.display = "flex";
                       
+                      // Link ko QR Image me badalna
                       qrArea.innerHTML = \`
                           <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=\${encodeURIComponent(data.link_url)}" class="qr-code" />
                           <div class="scan-msg">Scan & Pay ₹\${amount}</div>
                           <p style="font-size:12px; color:#888; margin-top:10px">Link sent to \${phone}</p>
-                          <button onclick="location.reload()" style="background:#555; margin-top:15px; padding:10px; font-size:14px;">New Payment</button>
+                          <button onclick="location.reload()" style="background:#555; margin-top:15px; padding:10px; font-size:14px; color:white; border:none; border-radius:5px;">New Payment</button>
                       \`;
 
                   } catch (e) {
@@ -101,15 +100,14 @@ export default {
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
         
-        // Agar keys nahi mili to error do
         if(!APP_ID || !SECRET_KEY) {
             return new Response(JSON.stringify({ message: "API Keys not found in Dashboard Settings" }), { status: 500 });
         }
 
         const linkId = "LNK_" + Date.now();
         
-        // Cashfree Payment Link API Call
-        const cfResponse = await fetch("https://api.cashfree.com/links", {
+        // ✅ CORRECTED URL: 'https://api.cashfree.com/pg/links' (Added /pg/)
+        const cfResponse = await fetch("https://api.cashfree.com/pg/links", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
