@@ -144,13 +144,13 @@ export default {
               <div class="form-body">
                   <div class="qr-hint">
                       <svg class="qr-icon" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
                           <rect x="3" y="3" width="7" height="7" stroke-width="2"/>
                           <rect x="14" y="3" width="7" height="7" stroke-width="2"/>
                           <rect x="3" y="14" width="7" height="7" stroke-width="2"/>
                       </svg>
                       <div class="qr-text">
-                          Select <strong>UPI QR</strong> on the next screen to scan and pay instantly.
+                          Tap <strong>Pay Now</strong> to scan <strong>UPI QR Code</strong> instantly.
                       </div>
                   </div>
 
@@ -190,7 +190,7 @@ export default {
                   }
 
                   btn.disabled = true;
-                  btn.innerHTML = '<span class="loader"></span> Processing...';
+                  btn.innerHTML = '<span class="loader"></span> Opening QR...';
 
                   try {
                       const res = await fetch("/create-order", {
@@ -249,8 +249,8 @@ export default {
                 customer_email: "raj.bazaarika@example.com"
             },
             order_meta: {
-                // FIXED LINE BELOW - Removed unnecessary backslashes
-                return_url: `https://${url.hostname}/?order_id={order_id}`
+                return_url: `https://${url.hostname}/?order_id={order_id}`,
+                payment_methods: "upi" // CHANGE: This restricts payment to ONLY UPI/QR
             }
         };
 
