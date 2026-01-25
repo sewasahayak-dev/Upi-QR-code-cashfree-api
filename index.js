@@ -3,7 +3,7 @@ export default {
     const url = new URL(request.url);
 
     // ------------------------------------------------------------------
-    // 1. MAIN UI PAGE
+    // 1. FRONTEND: PAYMENT PAGE (UI)
     // ------------------------------------------------------------------
     if (url.pathname === "/" && request.method === "GET") {
       const html = `
@@ -11,113 +11,113 @@ export default {
       <html lang="en">
       <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Sewa Sahayak - Scan & Pay</title>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Sewa Sahayak Payment</title>
+          <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-              /* --- CSS STYLES --- */
-              * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-              body { background: #f3f4f6; height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+              * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+              body { background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
               
-              .card { 
-                  background: white; 
-                  width: 100%; 
-                  max-width: 400px; 
-                  border-radius: 20px; 
-                  box-shadow: 0 20px 40px rgba(0,0,0,0.05); 
-                  padding: 30px; 
+              .container {
+                  background: #ffffff;
+                  width: 100%;
+                  max-width: 400px;
+                  border-radius: 24px;
+                  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+                  overflow: hidden;
                   text-align: center;
-                  transition: all 0.3s ease;
+                  transition: height 0.3s ease;
               }
-
-              h2 { color: #111827; margin-bottom: 5px; font-size: 22px; }
-              p.subtitle { color: #6b7280; font-size: 14px; margin-bottom: 25px; }
-
+              
+              .header { background: #4f46e5; padding: 24px; color: white; }
+              .header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+              .header p { font-size: 13px; opacity: 0.9; }
+              
+              .body { padding: 30px 24px; }
+              
               /* Input Styles */
-              .input-group { margin-bottom: 15px; text-align: left; }
-              label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
-              input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 16px; outline: none; transition: 0.2s; }
-              input:focus { border-color: #6366f1; }
-
-              /* Button */
-              button { 
-                  width: 100%; background: #6366f1; color: white; border: none; padding: 14px; 
-                  border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; 
+              .input-group { text-align: left; margin-bottom: 20px; }
+              .label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+              input {
+                  width: 100%; padding: 14px; border: 2px solid #e5e7eb; border-radius: 12px;
+                  font-size: 16px; outline: none; transition: border 0.3s;
               }
-              button:disabled { background: #cbd5e1; cursor: not-allowed; }
+              input:focus { border-color: #4f46e5; }
+              
+              button {
+                  width: 100%; padding: 16px; background: #4f46e5; color: white; border: none;
+                  border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;
+                  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+              }
+              button:disabled { background: #9ca3af; cursor: not-allowed; }
 
-              /* QR Section */
-              #qr-section { display: none; margin-top: 20px; }
-              .qr-image { width: 220px; height: 220px; margin: 0 auto 15px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
-              .timer { font-size: 13px; color: #ef4444; font-weight: 600; margin-top: 10px; }
-              .loader { width: 24px; height: 24px; border: 3px solid #6366f1; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; }
+              /* QR Section (Hidden by default) */
+              #qr-section { display: none; }
+              .qr-image { width: 200px; height: 200px; margin: 0 auto 20px; border: 1px solid #eee; padding: 10px; border-radius: 10px; }
+              .timer { font-size: 12px; color: #6b7280; margin-top: 10px; }
               
-              /* Success Section */
+              .loader { width: 18px; height: 18px; border: 2px solid #fff; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; vertical-align: middle; margin-right: 8px; }
+              @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+              /* Success Screen */
               #success-section { display: none; }
-              .success-icon { width: 80px; height: 80px; background: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px; }
-              
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              .success-icon { width: 60px; height: 60px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: white; font-size: 30px; }
           </style>
       </head>
       <body>
 
-          <div class="card" id="main-card">
-              <div id="form-section">
+          <div class="container">
+              <div class="header">
                   <h2>Sewa Sahayak</h2>
-                  <p class="subtitle">Enter details to generate QR</p>
-                  
+                  <p>Secure UPI Payment</p>
+              </div>
+
+              <div class="body" id="form-section">
                   <div class="input-group">
-                      <label>Amount (₹)</label>
-                      <input type="number" id="amount" value="1" min="1">
+                      <label class="label">Amount (₹)</label>
+                      <input type="number" id="amount" placeholder="100" value="1">
                   </div>
                   <div class="input-group">
-                      <label>Mobile Number</label>
+                      <label class="label">Phone Number</label>
                       <input type="tel" id="phone" placeholder="9999999999" maxlength="10">
                   </div>
-
-                  <button id="pay-btn" onclick="generateQR()">Generate QR Code</button>
+                  <button id="payBtn" onclick="generateQR()">Pay Now</button>
               </div>
 
-              <div id="qr-section">
-                  <h2>Scan to Pay</h2>
-                  <p class="subtitle">Use any UPI App</p>
-                  
-                  <img id="qr-img" class="qr-image" src="" alt="QR Code">
-                  
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #6b7280; font-size: 14px;">
-                      <span class="loader" style="width: 16px; height: 16px; border-width: 2px;"></span>
-                      Waiting for payment...
-                  </div>
+              <div class="body" id="qr-section">
+                  <p style="margin-bottom: 15px; font-weight: 600; color: #374151;">Scan to Pay ₹<span id="display-amount"></span></p>
+                  <img id="qr-img" src="" alt="QR Code" class="qr-image" />
+                  <p style="font-size: 13px; color: #4f46e5; font-weight: 500;">Listening for payment...</p>
+                  <div class="timer">Please scan within 5 minutes</div>
+                  <button onclick="location.reload()" style="margin-top: 20px; background: #f3f4f6; color: #374151; box-shadow: none;">Cancel</button>
               </div>
 
-              <div id="success-section">
+              <div class="body" id="success-section">
                   <div class="success-icon">✓</div>
-                  <h2 style="color: #15803d;">Payment Successful!</h2>
-                  <p class="subtitle" id="success-msg">Your transaction is complete.</p>
-                  <button onclick="window.location.reload()" style="background: #22c55e;">Pay Again</button>
+                  <h3 style="color: #15803d; margin-bottom: 10px;">Payment Successful!</h3>
+                  <p style="font-size: 13px; color: #6b7280;">Thank you for your payment.</p>
+                  <button onclick="location.reload()" style="margin-top: 20px; background: #22c55e;">Make Another Payment</button>
               </div>
           </div>
 
           <script>
-              let checkInterval;
-              let currentOrderId = null;
+              let pollingInterval;
+              let currentOrderId;
 
               async function generateQR() {
-                  const amount = document.getElementById("amount").value;
-                  const phone = document.getElementById("phone").value;
-                  const btn = document.getElementById("pay-btn");
+                  const amount = document.getElementById('amount').value;
+                  const phone = document.getElementById('phone').value;
+                  const btn = document.getElementById('payBtn');
 
-                  if(!amount || !phone || phone.length !== 10) {
-                      alert("Please enter valid amount and 10 digit number");
-                      return;
-                  }
+                  if(!amount || phone.length !== 10) { alert("Invalid details"); return; }
 
-                  btn.innerHTML = '<span class="loader" style="border-color: white;"></span> Processing...';
+                  // Loading UI
                   btn.disabled = true;
+                  btn.innerHTML = '<span class="loader"></span> Generating QR...';
 
                   try {
                       // Call Backend to Create Order AND Get QR
-                      const res = await fetch("/generate-qr", {
+                      const res = await fetch("/create-qr", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ amount, phone })
@@ -125,46 +125,44 @@ export default {
                       
                       const data = await res.json();
                       
-                      if(!res.ok) throw new Error(data.error || "Failed");
+                      if(!res.ok || !data.qr_image) {
+                          throw new Error(data.error || "Failed to generate QR");
+                      }
 
-                      // Show QR
-                      document.getElementById("form-section").style.display = "none";
-                      document.getElementById("qr-section").style.display = "block";
-                      document.getElementById("qr-img").src = data.qr_image;
-                      
+                      // Switch to QR View
                       currentOrderId = data.order_id;
-                      
-                      // Start polling for status
-                      startStatusCheck();
+                      document.getElementById('form-section').style.display = 'none';
+                      document.getElementById('qr-section').style.display = 'block';
+                      document.getElementById('qr-img').src = data.qr_image;
+                      document.getElementById('display-amount').innerText = amount;
+
+                      // Start Polling for Status
+                      startPolling(data.order_id);
 
                   } catch (e) {
-                      console.error(e);
                       alert("Error: " + e.message);
-                      btn.innerHTML = 'Generate QR Code';
                       btn.disabled = false;
+                      btn.innerHTML = 'Pay Now';
                   }
               }
 
-              function startStatusCheck() {
-                  checkInterval = setInterval(async () => {
-                      if(!currentOrderId) return;
-                      
+              function startPolling(orderId) {
+                  pollingInterval = setInterval(async () => {
                       try {
-                          const res = await fetch("/check-status?order_id=" + currentOrderId);
+                          const res = await fetch("/check-status?order_id=" + orderId);
                           const data = await res.json();
                           
                           if(data.status === "PAID") {
-                              clearInterval(checkInterval);
-                              showSuccess(currentOrderId);
+                              clearInterval(pollingInterval);
+                              showSuccess();
                           }
-                      } catch(e) { console.log("Check failed", e); }
+                      } catch(e) { console.error("Polling error", e); }
                   }, 3000); // Check every 3 seconds
               }
 
-              function showSuccess(id) {
-                  document.getElementById("qr-section").style.display = "none";
-                  document.getElementById("success-section").style.display = "block";
-                  document.getElementById("success-msg").innerText = "Order ID: " + id;
+              function showSuccess() {
+                  document.getElementById('qr-section').style.display = 'none';
+                  document.getElementById('success-section').style.display = 'block';
               }
           </script>
       </body>
@@ -174,19 +172,17 @@ export default {
     }
 
     // ------------------------------------------------------------------
-    // 2. API: GENERATE QR (Create Order + Fetch QR)
+    // 2. API: CREATE ORDER & GET QR (Backend)
     // ------------------------------------------------------------------
-    if (url.pathname === "/generate-qr" && request.method === "POST") {
+    if (url.pathname === "/create-qr" && request.method === "POST") {
       try {
         const body = await request.json();
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
-        
-        if (!APP_ID || !SECRET_KEY) throw new Error("Missing API Keys");
+        const BASE_URL = "https://api.cashfree.com/pg"; // Production URL
 
+        // A. Create Order
         const orderId = "ORD_" + Date.now();
-        
-        // Step A: Create Order
         const orderPayload = {
             order_id: orderId,
             order_amount: parseFloat(body.amount),
@@ -194,12 +190,11 @@ export default {
             customer_details: {
                 customer_id: "CUST_" + Date.now(),
                 customer_phone: body.phone,
-                customer_email: "raj.bazaarika@example.com"
-            },
-            order_meta: { return_url: "https://example.com" } // Not used but required
+                customer_email: "raj@bazaarika.in"
+            }
         };
 
-        const createRes = await fetch("https://api.cashfree.com/pg/orders", {
+        const createRes = await fetch(BASE_URL + "/orders", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -210,18 +205,20 @@ export default {
             body: JSON.stringify(orderPayload)
         });
 
-        const createData = await createRes.json();
-        if(!createRes.ok) throw new Error(createData.message);
+        const orderData = await createRes.json();
+        if (!createRes.ok) throw new Error(orderData.message || "Order Failed");
 
-        const paymentSessionId = createData.payment_session_id;
+        const sessionId = orderData.payment_session_id;
 
-        // Step B: Get UPI QR Code using the Session ID
-        const qrPayload = {
-            payment_method: { upi: { channel: "qrcode" } },
-            payment_session_id: paymentSessionId
+        // B. Request QR Code (Headless Payment)
+        const payPayload = {
+            payment_session_id: sessionId,
+            payment_method: {
+                upi: { channel: "qrcode" }
+            }
         };
 
-        const qrRes = await fetch(`https://api.cashfree.com/pg/orders/${orderId}/pay`, {
+        const payRes = await fetch(BASE_URL + "/orders/sessions/" + sessionId + "/pay", { // NOTE: Using Session Pay Endpoint
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -229,20 +226,24 @@ export default {
                 "x-client-secret": SECRET_KEY,
                 "x-api-version": "2023-08-01"
             },
-            body: JSON.stringify(qrPayload)
+            body: JSON.stringify(payPayload)
         });
 
-        const qrData = await qrRes.json();
+        const payData = await payRes.json();
         
-        // qrData.data.payload.qrcode contains the Base64 image string
-        if(qrData.data && qrData.data.payload && qrData.data.payload.qrcode) {
-             return new Response(JSON.stringify({
-                order_id: orderId,
-                qr_image: qrData.data.payload.qrcode
-             }), { headers: { "Content-Type": "application/json" } });
+        // QR Code is usually in payData.data.payload.qrcode
+        let qrCodeBase64 = null;
+        if(payData.data && payData.data.payload && payData.data.payload.qrcode) {
+            qrCodeBase64 = payData.data.payload.qrcode;
         } else {
-            throw new Error("Failed to generate QR");
+             // Fallback for some API versions
+             throw new Error("Could not fetch QR from Cashfree");
         }
+
+        return new Response(JSON.stringify({ 
+            order_id: orderId,
+            qr_image: qrCodeBase64 
+        }), { headers: { "Content-Type": "application/json" } });
 
       } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500 });
@@ -250,7 +251,7 @@ export default {
     }
 
     // ------------------------------------------------------------------
-    // 3. API: CHECK STATUS
+    // 3. API: CHECK STATUS (Polling)
     // ------------------------------------------------------------------
     if (url.pathname === "/check-status" && request.method === "GET") {
         const orderId = url.searchParams.get("order_id");
@@ -268,11 +269,11 @@ export default {
             const data = await res.json();
             
             return new Response(JSON.stringify({ 
-                status: data.order_status // Returns "PAID", "ACTIVE", etc.
+                status: data.order_status // Returns 'PAID', 'ACTIVE', etc.
             }), { headers: { "Content-Type": "application/json" } });
 
         } catch(e) {
-            return new Response(JSON.stringify({ status: "ERROR" }));
+            return new Response(JSON.stringify({ error: "Check failed" }), { status: 500 });
         }
     }
 
