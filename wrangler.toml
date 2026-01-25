@@ -1,0 +1,6 @@
+name = "upi-qr-cashfree"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# API Keys hum Dashboard me daalenge, yahan khali rakhein suraksha ke liye
