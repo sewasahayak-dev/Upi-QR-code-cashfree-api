@@ -61,7 +61,7 @@ export default {
               #qrcode {
                   width: 200px;
                   height: 200px;
-                  margin: 0 auto 20px;
+                  margin: 0 auto 15px;
                   display: flex;
                   align-items: center;
                   justify-content: center;
@@ -72,6 +72,17 @@ export default {
                   border-radius: 10px;
                   width: 100%;
               }
+
+              .upi-id-box {
+                  background: #eff6ff;
+                  border: 1px dashed #3b82f6;
+                  padding: 10px;
+                  border-radius: 8px;
+                  margin-bottom: 15px;
+                  word-break: break-all;
+              }
+              .upi-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+              .upi-value { font-size: 14px; color: #1e40af; font-weight: 700; margin-top: 2px; }
 
               .timer { font-size: 12px; color: #6b7280; margin-top: 10px; }
               
@@ -100,16 +111,20 @@ export default {
                       <label class="label">Phone Number</label>
                       <input type="tel" id="phone" placeholder="9999999999" maxlength="10">
                   </div>
-                  <button id="payBtn" onclick="generateQR()">Show QR Code</button>
+                  <button id="payBtn" onclick="generateQR()">Get UPI ID & QR</button>
               </div>
 
               <div class="body" id="qr-section">
-                  <p style="margin-bottom: 15px; font-weight: 600; color: #374151;">Scan to Pay ₹<span id="display-amount"></span></p>
+                  <p style="margin-bottom: 15px; font-weight: 600; color: #374151;">Scan or Pay to UPI ID</p>
                   
+                  <div class="upi-id-box">
+                      <div class="upi-label">Pay to VPA</div>
+                      <div class="upi-value" id="display-vpa">Loading...</div>
+                  </div>
+
                   <div id="qrcode"></div>
                   
-                  <p style="font-size: 13px; color: #4f46e5; font-weight: 500;">Listening for payment...</p>
-                  <div class="timer">QR expires in 5 minutes</div>
+                  <p style="font-size: 13px; color: #4f46e5; font-weight: 500;">Waiting for payment...</p>
                   <button onclick="location.reload()" style="margin-top: 20px; background: #f3f4f6; color: #374151; box-shadow: none;">Cancel</button>
               </div>
 
@@ -129,11 +144,11 @@ export default {
                   const phone = document.getElementById('phone').value;
                   const btn = document.getElementById('payBtn');
 
-                  if(!amount || phone.length !== 10) { alert("Invalid details"); return; }
+                  if(!amount || phone.length !== 10) { alert("Please enter valid amount and 10-digit phone number"); return; }
 
                   // Loading UI
                   btn.disabled = true;
-                  btn.innerHTML = '<span class="loader"></span> Generating QR...';
+                  btn.innerHTML = '<span class="loader"></span> Fetching details...';
 
                   try {
                       // 1. Get Payment Link from Backend
@@ -145,35 +160,45 @@ export default {
                       
                       const data = await res.json();
                       
-                      if(!res.ok || !data.upi_link) {
-                          throw new Error(data.error || "Failed to generate QR Link");
+                      if(!res.ok) {
+                          // Show DETAILED error from Backend
+                          throw new Error(data.error || JSON.stringify(data));
+                      }
+                      
+                      if(!data.upi_link) {
+                           throw new Error("No UPI Link received. Response: " + JSON.stringify(data));
                       }
 
                       // 2. Switch to QR View
                       document.getElementById('form-section').style.display = 'none';
                       document.getElementById('qr-section').style.display = 'block';
-                      document.getElementById('display-amount').innerText = amount;
 
-                      // 3. GENERATE QR CODE LOCALLY
-                      // Clear previous QR
+                      // 3. SHOW UPI ID (VPA)
+                      if(data.vpa) {
+                          document.getElementById('display-vpa').innerText = data.vpa;
+                      } else {
+                          document.getElementById('display-vpa').innerText = "Scan QR below";
+                      }
+
+                      // 4. GENERATE QR CODE LOCALLY
                       document.getElementById("qrcode").innerHTML = "";
-                      // Create new QR from the UPI Link
                       new QRCode(document.getElementById("qrcode"), {
                           text: data.upi_link,
                           width: 200,
                           height: 200,
                           colorDark : "#000000",
                           colorLight : "#ffffff",
-                          correctLevel : QRCode.CorrectLevel.H
+                          correctLevel : QRCode.CorrectLevel.M
                       });
 
-                      // 4. Start Polling for Status
+                      // 5. Start Polling for Status
                       startPolling(data.order_id);
 
                   } catch (e) {
-                      alert("Error: " + e.message);
+                      // ALERT THE FULL ERROR SO WE KNOW WHAT HAPPENED
+                      alert("Payment Failed: " + e.message);
                       btn.disabled = false;
-                      btn.innerHTML = 'Show QR Code';
+                      btn.innerHTML = 'Get UPI ID & QR';
                   }
               }
 
@@ -203,7 +228,7 @@ export default {
     }
 
     // ------------------------------------------------------------------
-    // 2. API: CREATE ORDER & GET UPI LINK (Backend)
+    // 2. API: CREATE ORDER & EXTRACT UPI DATA
     // ------------------------------------------------------------------
     if (url.pathname === "/create-qr" && request.method === "POST") {
       try {
@@ -213,7 +238,7 @@ export default {
         const BASE_URL = "https://api.cashfree.com/pg"; 
 
         if (!APP_ID || !SECRET_KEY) {
-            throw new Error("Missing API Keys");
+            throw new Error("Missing API Keys in Environment Variables");
         }
 
         // A. Create Order
@@ -225,7 +250,7 @@ export default {
             customer_details: {
                 customer_id: "CUST_" + Date.now(),
                 customer_phone: body.phone,
-                customer_email: "raj@bazaarika.in"
+                customer_email: "raj.bazaarika@example.com"
             }
         };
 
@@ -241,12 +266,13 @@ export default {
         });
 
         const orderData = await createRes.json();
-        if (!createRes.ok) throw new Error(orderData.message || "Order Creation Failed");
+        if (!createRes.ok) {
+            return new Response(JSON.stringify({ error: orderData.message || "Order Creation Failed", full_error: orderData }), { status: 400 });
+        }
 
         const sessionId = orderData.payment_session_id;
 
-        // B. Request Payment Link (channel: "link")
-        // This is much safer than "qrcode" because it always returns a URL
+        // B. Request Payment Link (Intent Mode)
         const payPayload = {
             payment_session_id: sessionId,
             payment_method: {
@@ -267,18 +293,43 @@ export default {
 
         const payData = await payRes.json();
         
-        // C. Extract the UPI URL
+        // C. Extract Data Safely
         let upiLink = null;
-        if(payData.data && payData.data.payload && payData.data.payload.default) {
-            upiLink = payData.data.payload.default; // This looks like "upi://pay?pa=..."
-        } else {
-             console.log("Pay Response:", JSON.stringify(payData));
-             throw new Error("Could not fetch UPI Link from Cashfree");
+        let vpa = null;
+
+        // Check if payload exists
+        if(payData.data && payData.data.payload) {
+            // Try generic default
+            if(payData.data.payload.default) {
+                upiLink = payData.data.payload.default;
+            } 
+            // Sometimes it returns specific apps, pick any valid one if default is missing
+            else if(Object.values(payData.data.payload).length > 0) {
+                 upiLink = Object.values(payData.data.payload)[0];
+            }
         }
+
+        if(!upiLink) {
+             // Return FULL debug info to Frontend so we see what happened
+             return new Response(JSON.stringify({ 
+                 error: "UPI Link Not Found in Response", 
+                 debug_response: payData 
+             }), { status: 400 });
+        }
+
+        // D. Extract VPA (UPI ID) from the Link
+        // Link looks like: upi://pay?pa=merchant@bank&pn=MerchantName...
+        try {
+            const match = upiLink.match(/[?&]pa=([^&]+)/);
+            if(match && match[1]) {
+                vpa = decodeURIComponent(match[1]);
+            }
+        } catch(e) { console.error("Regex error", e); }
 
         return new Response(JSON.stringify({ 
             order_id: orderId,
-            upi_link: upiLink 
+            upi_link: upiLink,
+            vpa: vpa // Sending the extracted UPI ID to frontend
         }), { headers: { "Content-Type": "application/json" } });
 
       } catch (e) {
