@@ -9,22 +9,30 @@ export default {
 
     // --- ROUTES ---
 
-    // 1. Order Create करने के लिए (दूसरी वेबसाइट से कॉल करें)
+    // 1. URL से डायरेक्ट पेमेंट (New Feature with Redirect)
+    // Usage: /pay-link?amount=100&phone=9999999999&return_url=https://your-site.com/thank-you
+    if (url.pathname === "/pay-link" && req.method === "GET") {
+      return handleInstantLink(url, env);
+    }
+
+    // 2. Order Create API (JSON वाला - वेबसाइट इंटीग्रेशन के लिए)
     if (url.pathname === "/api/create" && req.method === "POST") {
-      return createOrder(req, env);
+      return createOrderAPI(req, env);
     }
 
-    // 2. पेमेंट पेज (iframe या Redirect के लिए)
+    // 3. पेमेंट पेज UI (Worker के अंदर रेंडर होने वाला पेज)
     if (url.pathname === "/pay" && req.method === "GET") {
-      return paymentUI(url);
+      const sessionId = url.searchParams.get("session_id");
+      if(sessionId) return paymentUI(sessionId);
+      return new Response("Session ID Missing", { status: 400 });
     }
 
-    // 3. पेमेंट स्टेटस चेक करने के लिए
+    // 4. पेमेंट स्टेटस चेक करने के लिए
     if (url.pathname === "/api/status" && req.method === "GET") {
       return checkStatus(url, env);
     }
 
-    // 4. Webhook (Cashfree इसे कॉल करेगा)
+    // 5. Webhook (Cashfree इसे कॉल करेगा)
     if (url.pathname === "/webhook/cashfree" && req.method === "POST") {
       return cashfreeWebhook(req, env);
     }
@@ -37,11 +45,11 @@ export default {
 };
 
 /* =========================================================
-   HELPER: CORS HEADERS (महत्वपूर्ण)
+   HELPER: CORS HEADERS
 ========================================================= */
 function corsHeaders() {
   return {
-    "Access-Control-Allow-Origin": "*", // या अपनी वेबसाइट का नाम लिखें
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, x-api-version",
     "Content-Type": "application/json"
@@ -55,120 +63,113 @@ function handleOptions(req) {
 }
 
 /* =========================================================
-   1. CREATE ORDER (SECURE & EMBEDDABLE)
+   CORE FUNCTION: CASHFREE ORDER GENERATOR
 ========================================================= */
-async function createOrder(req, env) {
+async function generateCashfreeOrder(amount, phone, customReturnUrl, env) {
+  const orderId = "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+  // डिफ़ॉल्ट URL अगर यूजर ने कुछ नहीं दिया
+  let finalReturnUrl = customReturnUrl || "https://bazaarika.in/payment-success";
+
+  // URL में ?order_id={order_id} जोड़ना जरुरी है ताकि Cashfree आर्डर ID वापस भेज सके
+  // हम चेक करेंगे कि URL में पहले से '?' है या नहीं
+  if (finalReturnUrl.includes("?")) {
+    finalReturnUrl = finalReturnUrl + "&order_id={order_id}";
+  } else {
+    finalReturnUrl = finalReturnUrl + "?order_id={order_id}";
+  }
+
+  const payload = {
+    order_id: orderId,
+    order_amount: amount,
+    order_currency: "INR",
+    customer_details: {
+      customer_id: phone.replace(/\D/g, ''), // केवल नंबर
+      customer_phone: phone.replace(/\D/g, '')
+    },
+    order_meta: {
+      return_url: finalReturnUrl // यहाँ यूजर का कस्टम URL सेट हो रहा है
+    }
+  };
+
+  const res = await fetch("https://api.cashfree.com/pg/orders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-client-id": env.CASHFREE_APP_ID,
+      "x-client-secret": env.CASHFREE_SECRET_KEY,
+      "x-api-version": "2023-08-01"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return await res.json();
+}
+
+/* =========================================================
+   1. NEW: INSTANT URL LINK HANDLER (WITH REDIRECT SUPPORT)
+========================================================= */
+async function handleInstantLink(url, env) {
+  try {
+    const amount = Number(url.searchParams.get("amount"));
+    const phone = url.searchParams.get("phone");
+    
+    // यहाँ हम URL से 'return_url' या 'redirect_url' उठा रहे हैं
+    const returnUrl = url.searchParams.get("return_url") || url.searchParams.get("redirect_url");
+
+    if (!amount || amount < 1 || !phone) {
+      return new Response("Error: Please provide 'amount' and 'phone' in URL. Example: /pay-link?amount=100&phone=9999999999", { status: 400 });
+    }
+
+    // Order Create करें और Return URL पास करें
+    const data = await generateCashfreeOrder(amount, phone, returnUrl, env);
+
+    if (data.payment_session_id) {
+      // सीधा HTML पेज return करें जो पेमेंट शुरू कर दे
+      return paymentUI(data.payment_session_id);
+    } else {
+      return new Response("Error creating order: " + JSON.stringify(data), { status: 500 });
+    }
+
+  } catch (err) {
+    return new Response("Server Error: " + err.message, { status: 500 });
+  }
+}
+
+/* =========================================================
+   2. OLD API: CREATE ORDER (JSON Response)
+========================================================= */
+async function createOrderAPI(req, env) {
   try {
     const body = await req.json();
     const amount = Number(body.amount);
     const phone = body.phone;
-    // अगर return_url नहीं दिया, तो डिफ़ॉल्ट worker का /pay पेज रहेगा
-    const returnUrl = body.return_url || "https://bazaarika.in/payment-success"; 
+    const returnUrl = body.return_url; // JSON body से return_url पढ़ें
 
-    if (!amount || amount < 1 || !phone) {
-      return new Response(JSON.stringify({ error: "Invalid amount or phone" }), {
-        status: 400,
-        headers: corsHeaders()
-      });
+    if (!amount || !phone) {
+      return new Response(JSON.stringify({ error: "Invalid amount or phone" }), { status: 400, headers: corsHeaders() });
     }
 
-    const orderId = "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    const data = await generateCashfreeOrder(amount, phone, returnUrl, env);
 
-    const payload = {
-      order_id: orderId,
-      order_amount: amount,
-      order_currency: "INR",
-      customer_details: {
-        customer_id: phone.replace(/\D/g, ''), // केवल नंबर रखें
-        customer_phone: phone.replace(/\D/g, '')
-      },
-      order_meta: {
-        return_url: returnUrl + "?order_id={order_id}"
-      }
-    };
-
-    const res = await fetch("https://api.cashfree.com/pg/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-client-id": env.CASHFREE_APP_ID,
-        "x-client-secret": env.CASHFREE_SECRET_KEY,
-        "x-api-version": "2023-08-01"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    
-    // Response में payment_session_id भेजें ताकि Frontend उसे इस्तेमाल कर सके
-    return new Response(JSON.stringify(data), {
-      headers: corsHeaders()
-    });
+    return new Response(JSON.stringify(data), { headers: corsHeaders() });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: corsHeaders()
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
   }
 }
 
 /* =========================================================
-   2. CHECK STATUS (FROM ANY WEBSITE)
+   3. PAYMENT UI (HTML Page Generation)
 ========================================================= */
-async function checkStatus(url, env) {
-  const orderId = url.searchParams.get("order_id");
-
-  if (!orderId) {
-    return new Response(JSON.stringify({ error: "Missing order_id" }), {
-      status: 400,
-      headers: corsHeaders()
-    });
-  }
-
-  try {
-    const res = await fetch(
-      `https://api.cashfree.com/pg/orders/${orderId}`,
-      {
-        headers: {
-          "x-client-id": env.CASHFREE_APP_ID,
-          "x-client-secret": env.CASHFREE_SECRET_KEY,
-          "x-api-version": "2023-08-01"
-        }
-      }
-    );
-
-    const data = await res.json();
-    return new Response(JSON.stringify(data), {
-      headers: corsHeaders()
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "Failed to fetch status" }), {
-      status: 500,
-      headers: corsHeaders()
-    });
-  }
-}
-
-/* =========================================================
-   3. PAYMENT UI (HOSTED CHECKOUT PAGE)
-========================================================= */
-function paymentUI(url) {
-  // हम सीधे payment_session_id लेंगे जो ज्यादा सुरक्षित है
-  const sessionId = url.searchParams.get("session_id");
-
-  if (!sessionId) {
-    return new Response("Missing Session ID", { status: 400 });
-  }
-
+function paymentUI(sessionId) {
   const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Secure Payment</title>
+  <title>Payment</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <style>
     body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f4f6f8; }
@@ -181,19 +182,18 @@ function paymentUI(url) {
 <body>
   <div class="container">
     <div class="loader"></div>
-    <h3>Initializing Payment...</h3>
-    <p>Please wait, do not close this window.</p>
+    <h3>Secure Payment</h3>
+    <p>Please wait, redirecting...</p>
   </div>
 
   <script>
     const cashfree = Cashfree({
-      mode: "production" // हमेशा production रखें
+      mode: "production" 
     });
 
-    // Payment Session ID से चेकआउट शुरू करें
     cashfree.checkout({
       paymentSessionId: "${sessionId}",
-      redirectTarget: "_self" // या "_self" अगर redirect चाहिए, "_blank" नहीं
+      redirectTarget: "_self" 
     });
   </script>
 </body>
@@ -206,12 +206,37 @@ function paymentUI(url) {
 }
 
 /* =========================================================
-   4. WEBHOOK (DOUBLE CHECK SECURITY)
+   4. CHECK STATUS API
+========================================================= */
+async function checkStatus(url, env) {
+  const orderId = url.searchParams.get("order_id");
+
+  if (!orderId) {
+    return new Response(JSON.stringify({ error: "Missing order_id" }), { status: 400, headers: corsHeaders() });
+  }
+
+  try {
+    const res = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
+      headers: {
+        "x-client-id": env.CASHFREE_APP_ID,
+        "x-client-secret": env.CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01"
+      }
+    });
+
+    const data = await res.json();
+    return new Response(JSON.stringify(data), { headers: corsHeaders() });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ error: "Failed to fetch status" }), { status: 500, headers: corsHeaders() });
+  }
+}
+
+/* =========================================================
+   5. WEBHOOK
 ========================================================= */
 async function cashfreeWebhook(req, env) {
   try {
-    // 1. Webhook का data पढ़ें
-    // नोट: Cashfree URLEncoded भेज सकता है या JSON, दोनों को हैंडल करें
     let data;
     const contentType = req.headers.get("content-type") || "";
     
@@ -221,10 +246,6 @@ async function cashfreeWebhook(req, env) {
       const formData = await req.formData();
       data = Object.fromEntries(formData);
     }
-
-    // data.data.order.order_id Cashfree के नए webhook format में होता है
-    // या पुराने में सीधे data.orderId हो सकता है। 
-    // सबसे सुरक्षित तरीका: सीधे Cashfree API से Status पूछें (Trust but Verify)
     
     const orderId = data?.data?.order?.order_id || data?.order_id;
 
@@ -232,26 +253,18 @@ async function cashfreeWebhook(req, env) {
         return new Response("No Order ID found", { status: 400 });
     }
 
-    // 2. DOUBLE CHECK: सीधे Cashfree Server से पूछें कि क्या पेमेंट सच में हुआ है?
-    // यह हैकर्स से बचने का सबसे अच्छा तरीका है (Signature verify न भी हो तो यह काम करेगा)
-    const statusRes = await fetch(
-      `https://api.cashfree.com/pg/orders/${orderId}`,
-      {
+    const statusRes = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
         headers: {
           "x-client-id": env.CASHFREE_APP_ID,
           "x-client-secret": env.CASHFREE_SECRET_KEY,
           "x-api-version": "2023-08-01"
         }
-      }
-    );
+    });
 
     const statusData = await statusRes.json();
 
     if (statusData.order_status === "PAID") {
-      // ✅ SUCCESS: यहाँ अपना Database update करें या Email भेजें
       console.log(`Payment Verified for Order: ${orderId}`);
-    } else {
-      console.log(`Payment Failed or Pending for Order: ${orderId}`);
     }
 
     return new Response("OK", { status: 200 });
