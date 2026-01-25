@@ -83,9 +83,20 @@ export default {
               }
               .upi-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
               .upi-value { font-size: 14px; color: #1e40af; font-weight: 700; margin-top: 2px; }
-
-              .timer { font-size: 12px; color: #6b7280; margin-top: 10px; }
               
+              .error-box {
+                  background: #fef2f2;
+                  border: 1px solid #ef4444;
+                  color: #b91c1c;
+                  padding: 10px;
+                  border-radius: 8px;
+                  font-size: 12px;
+                  margin-top: 15px;
+                  display: none;
+                  text-align: left;
+                  word-break: break-word;
+              }
+
               .loader { width: 18px; height: 18px; border: 2px solid #fff; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; vertical-align: middle; margin-right: 8px; }
               @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -112,6 +123,7 @@ export default {
                       <input type="tel" id="phone" placeholder="9999999999" maxlength="10">
                   </div>
                   <button id="payBtn" onclick="generateQR()">Get UPI ID & QR</button>
+                  <div id="error-display" class="error-box"></div>
               </div>
 
               <div class="body" id="qr-section">
@@ -143,12 +155,14 @@ export default {
                   const amount = document.getElementById('amount').value;
                   const phone = document.getElementById('phone').value;
                   const btn = document.getElementById('payBtn');
+                  const errorBox = document.getElementById('error-display');
 
                   if(!amount || phone.length !== 10) { alert("Please enter valid amount and 10-digit phone number"); return; }
 
-                  // Loading UI
+                  // Reset UI
+                  errorBox.style.display = 'none';
                   btn.disabled = true;
-                  btn.innerHTML = '<span class="loader"></span> Fetching details...';
+                  btn.innerHTML = '<span class="loader"></span> Processing...';
 
                   try {
                       // 1. Get Payment Link from Backend
@@ -162,7 +176,7 @@ export default {
                       
                       if(!res.ok) {
                           // Show DETAILED error from Backend
-                          throw new Error(data.error || JSON.stringify(data));
+                          throw new Error(data.message || JSON.stringify(data));
                       }
                       
                       if(!data.upi_link) {
@@ -177,7 +191,7 @@ export default {
                       if(data.vpa) {
                           document.getElementById('display-vpa').innerText = data.vpa;
                       } else {
-                          document.getElementById('display-vpa').innerText = "Scan QR below";
+                          document.getElementById('display-vpa').innerText = "UPI ID Hidden (Scan QR)";
                       }
 
                       // 4. GENERATE QR CODE LOCALLY
@@ -195,8 +209,10 @@ export default {
                       startPolling(data.order_id);
 
                   } catch (e) {
-                      // ALERT THE FULL ERROR SO WE KNOW WHAT HAPPENED
-                      alert("Payment Failed: " + e.message);
+                      console.error(e);
+                      // Show full error on screen so user can screenshot it
+                      errorBox.style.display = 'block';
+                      errorBox.innerHTML = "<strong>Error:</strong> " + e.message;
                       btn.disabled = false;
                       btn.innerHTML = 'Get UPI ID & QR';
                   }
@@ -267,17 +283,19 @@ export default {
 
         const orderData = await createRes.json();
         if (!createRes.ok) {
-            return new Response(JSON.stringify({ error: orderData.message || "Order Creation Failed", full_error: orderData }), { status: 400 });
+            return new Response(JSON.stringify(orderData), { status: 400 });
         }
 
         const sessionId = orderData.payment_session_id;
 
-        // B. Request Payment Link (Intent Mode)
+        // B. Request Payment Link (Method: UPI_LINK)
+        // Note: This requires "Seamless/S2S" permissions enabled on your Cashfree account.
         const payPayload = {
             payment_session_id: sessionId,
             payment_method: {
                 upi: { channel: "link" } 
-            }
+            },
+            save_instrument_instruction: false 
         };
 
         const payRes = await fetch(BASE_URL + "/orders/sessions/" + sessionId + "/pay", {
@@ -293,33 +311,36 @@ export default {
 
         const payData = await payRes.json();
         
+        // Debug: Log if something is wrong
+        if(!payRes.ok) {
+            return new Response(JSON.stringify({ 
+                message: payData.message || "Payment Session Failed", 
+                type: payData.type,
+                code: payData.code
+            }), { status: 400 });
+        }
+
         // C. Extract Data Safely
         let upiLink = null;
         let vpa = null;
 
-        // Check if payload exists
         if(payData.data && payData.data.payload) {
-            // Try generic default
             if(payData.data.payload.default) {
                 upiLink = payData.data.payload.default;
-            } 
-            // Sometimes it returns specific apps, pick any valid one if default is missing
-            else if(Object.values(payData.data.payload).length > 0) {
-                 upiLink = Object.values(payData.data.payload)[0];
+            } else if(payData.data.payload.qrcode) {
+                // If link fails but QR exists (Base64), we can't extract VPA easily, but we can return it.
+                // But user wants VPA text specifically.
+                return new Response(JSON.stringify({ error: "Only QR Image returned, no UPI Link. S2S might be partial." }), { status: 400 });
             }
         }
 
         if(!upiLink) {
-             // Return FULL debug info to Frontend so we see what happened
-             return new Response(JSON.stringify({ 
-                 error: "UPI Link Not Found in Response", 
-                 debug_response: payData 
-             }), { status: 400 });
+             return new Response(JSON.stringify({ error: "No UPI Payload found", debug: payData }), { status: 400 });
         }
 
         // D. Extract VPA (UPI ID) from the Link
-        // Link looks like: upi://pay?pa=merchant@bank&pn=MerchantName...
         try {
+            // Regex to find "pa=something"
             const match = upiLink.match(/[?&]pa=([^&]+)/);
             if(match && match[1]) {
                 vpa = decodeURIComponent(match[1]);
@@ -329,11 +350,11 @@ export default {
         return new Response(JSON.stringify({ 
             order_id: orderId,
             upi_link: upiLink,
-            vpa: vpa // Sending the extracted UPI ID to frontend
+            vpa: vpa
         }), { headers: { "Content-Type": "application/json" } });
 
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        return new Response(JSON.stringify({ message: e.message }), { status: 500 });
       }
     }
 
