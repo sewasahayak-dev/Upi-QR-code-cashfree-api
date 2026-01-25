@@ -3,12 +3,90 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/" && request.method === "GET") {
+      // Check if it's a payment return
+      const orderId = url.searchParams.get("order_id");
+      if (orderId) {
+        const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Status - Sewa Sahayak</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Inter', sans-serif; 
+                    background: #f8f9fa; 
+                    height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+                .status-container {
+                    background: white;
+                    padding: 40px;
+                    border-radius: 20px;
+                    text-align: center;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                    max-width: 400px;
+                    width: 100%;
+                }
+                .success-icon {
+                    width: 80px;
+                    height: 80px;
+                    background: #10b981;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 20px;
+                }
+                .success-icon svg {
+                    width: 40px;
+                    height: 40px;
+                    color: white;
+                }
+                h1 { color: #059669; margin-bottom: 10px; }
+                p { color: #64748b; margin-bottom: 30px; }
+                button {
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                button:hover { background: #4f46e5; }
+            </style>
+        </head>
+        <body>
+            <div class="status-container">
+                <div class="success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h1>Payment Successful!</h1>
+                <p>Your payment has been processed successfully. Order ID: ${orderId}</p>
+                <button onclick="window.location.href='/'">Back to Home</button>
+            </div>
+        </body>
+        </html>
+        `;
+        return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+
+      // Main page
       const html = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Sewa Sahayak</title>
           <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,7 +102,6 @@ export default {
               html, body {
                   height: 100%;
                   width: 100%;
-                  overflow: hidden;
               }
               
               body { 
@@ -32,11 +109,6 @@ export default {
                   background: #f8f9fa; 
                   display: flex;
                   flex-direction: column;
-                  position: fixed;
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  bottom: 0;
               }
 
               /* --- HEADER --- */
@@ -49,7 +121,6 @@ export default {
                   justify-content: space-between;
                   border-bottom: 1px solid #f1f5f9;
                   flex-shrink: 0;
-                  z-index: 100;
               }
               
               .brand { 
@@ -71,14 +142,13 @@ export default {
                   gap: 4px; 
               }
 
-              /* --- CONTENT (Scrollable) --- */
+              /* --- CONTENT --- */
               .content {
                   flex: 1;
                   padding: 24px;
                   overflow-y: auto;
                   -webkit-overflow-scrolling: touch;
-                  min-height: 0;
-                  padding-bottom: 90px;
+                  padding-bottom: 100px;
               }
 
               .input-group { 
@@ -130,7 +200,6 @@ export default {
                   font-weight: 600; 
                   color: #0f172a; 
                   outline: none; 
-                  min-width: 0;
               }
               
               input::-webkit-outer-spin-button,
@@ -147,7 +216,7 @@ export default {
                   color: #cbd5e1; 
               }
 
-              /* --- STICKY FOOTER BUTTON --- */
+              /* --- FOOTER --- */
               .footer {
                   position: fixed;
                   bottom: 0;
@@ -159,7 +228,6 @@ export default {
                   border-top: 1px solid #f1f5f9;
                   z-index: 50;
                   box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
-                  flex-shrink: 0;
               }
 
               button {
@@ -190,26 +258,6 @@ export default {
                   cursor: not-allowed;
               }
 
-              /* --- FULL SCREEN OVERLAY --- */
-              #payment-overlay {
-                  position: fixed;
-                  top: 0;
-                  left: 0;
-                  width: 100%;
-                  height: 100%;
-                  background: #ffffff;
-                  z-index: 999999;
-                  display: none;
-                  overflow: hidden;
-              }
-              
-              #payment-overlay iframe {
-                  width: 100%;
-                  height: 100%;
-                  border: none;
-                  display: block;
-              }
-              
               .loading-spinner {
                   display: inline-block;
                   width: 20px;
@@ -248,7 +296,7 @@ export default {
       </head>
       <body>
 
-          <div class="app-header" id="header">
+          <div class="app-header">
               <div class="brand">Sewa Sahayak</div>
               <div class="secure-badge">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 6c1.4 0 2.8 1.1 2.8 2.5V11h.6c.66 0 1.2.54 1.2 1.2v5.6c0 .66-.54 1.2-1.2 1.2H8.6c-.66 0-1.2-.54-1.2-1.2v-5.6c0-.66.54-1.2 1.2-1.2h.6V9.5C9.2 8.1 10.6 7 12 7zm0 1c-.83 0-1.5.67-1.5 1.5V11h3V9.5c0-.83-.67-1.5-1.5-1.5z"/></svg>
@@ -256,7 +304,7 @@ export default {
               </div>
           </div>
 
-          <div class="content" id="main-content">
+          <div class="content">
               <div class="input-group">
                   <div class="label">Payment Amount (₹)</div>
                   <div class="input-wrapper">
@@ -274,28 +322,18 @@ export default {
               </div>
           </div>
 
-          <div class="footer" id="footer">
-              <button onclick="startNativePayment()" id="pay-btn">
+          <div class="footer">
+              <button onclick="startPayment()" id="pay-btn">
                   Proceed to Pay
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
           </div>
 
-          <div id="payment-overlay"></div>
-
           <script>
-              let cashfree;
-              try { 
-                  cashfree = Cashfree({ mode: "production" }); 
-              } catch(e) { 
-                  console.error("Cashfree SDK error:", e); 
-              }
-
-              async function startNativePayment() {
+              async function startPayment() {
                   const amount = document.getElementById("amount").value;
                   const phone = document.getElementById("phone").value;
                   const btn = document.getElementById("pay-btn");
-                  const overlay = document.getElementById("payment-overlay");
                   
                   if(!amount || amount < 1) {
                       alert("Please enter a valid amount (minimum ₹1)");
@@ -326,61 +364,20 @@ export default {
                           throw new Error(data.message || data.error || "Failed to create order");
                       }
 
-                      // Hide main UI
-                      document.getElementById("header").style.display = 'none';
-                      document.getElementById("main-content").style.display = 'none';
-                      document.getElementById("footer").style.display = 'none';
+                      // Open Cashfree checkout in new tab
+                      const cashfree = Cashfree({ mode: "production" });
                       
-                      // Show overlay with full screen
-                      overlay.style.display = 'block';
-                      document.body.style.overflow = 'hidden';
-                      
-                      // Ensure overlay takes full viewport
-                      overlay.style.position = 'fixed';
-                      overlay.style.top = '0';
-                      overlay.style.left = '0';
-                      overlay.style.width = '100vw';
-                      overlay.style.height = '100vh';
-                      overlay.style.zIndex = '999999';
-
                       cashfree.checkout({
                           paymentSessionId: data.payment_session_id,
-                          redirectTarget: overlay,
-                          appearance: { 
-                              theme: "light",
-                              orientation: "portrait"
-                          }
-                      }).then(function(result){
-                          if(result.error) {
-                              throw new Error(result.error.message || "Payment failed");
-                          }
-                          if(result.redirect) {
-                              console.log("Redirecting to:", result.redirectUrl);
-                          }
-                      }).catch(function(error){
-                          console.error("Checkout error:", error);
-                          resetUI();
-                          alert("Payment Error: " + error.message);
+                          redirectTarget: "_self" // This opens directly in current window
                       });
                       
                   } catch (error) {
                       console.error("Payment initiation error:", error);
-                      resetUI();
+                      btn.innerHTML = 'Proceed to Pay <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+                      btn.disabled = false;
                       alert("Error: " + error.message);
                   }
-              }
-              
-              function resetUI() {
-                  const btn = document.getElementById("pay-btn");
-                  btn.innerHTML = 'Proceed to Pay <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-                  btn.disabled = false;
-                  
-                  document.getElementById("header").style.display = 'flex';
-                  document.getElementById("main-content").style.display = 'block';
-                  document.getElementById("footer").style.display = 'block';
-                  
-                  document.getElementById("payment-overlay").style.display = 'none';
-                  document.body.style.overflow = '';
               }
               
               // Input validation
@@ -396,7 +393,7 @@ export default {
               document.addEventListener('keydown', function(e) {
                   if(e.key === 'Enter') {
                       e.preventDefault();
-                      startNativePayment();
+                      startPayment();
                   }
               });
           </script>
@@ -405,19 +402,39 @@ export default {
       `;
       return new Response(html, { 
           headers: { 
-              "content-type": "text/html; charset=utf-8",
-              "x-frame-options": "SAMEORIGIN"
+              "content-type": "text/html; charset=utf-8"
           } 
       });
     }
 
-    // Backend Same Rahega
+    // Create order endpoint
     if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
         const orderId = "ORD_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+        const customerId = "cust_" + Date.now();
+        
+        const orderData = {
+            order_id: orderId,
+            order_amount: parseFloat(body.amount),
+            order_currency: "INR",
+            customer_details: { 
+                customer_id: customerId, 
+                customer_phone: body.phone,
+                customer_email: `${body.phone}@cashfree.com`
+            },
+            order_meta: {
+                return_url: `https://${request.headers.get("host")}/?order_id=${orderId}`,
+                notify_url: `https://${request.headers.get("host")}/webhook`
+            },
+            order_tags: {
+                merchant_defined_tag: "sewa_sahayak"
+            }
+        };
+        
+        console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
         
         const cfResponse = await fetch("https://api.cashfree.com/pg/orders", {
             method: "POST",
@@ -427,22 +444,11 @@ export default {
                 "x-client-secret": SECRET_KEY,
                 "x-api-version": "2023-08-01"
             },
-            body: JSON.stringify({
-                order_id: orderId,
-                order_amount: parseFloat(body.amount),
-                order_currency: "INR",
-                customer_details: { 
-                    customer_id: "cust_" + Date.now(), 
-                    customer_phone: body.phone,
-                    customer_email: body.phone + "@cashfree.com"
-                },
-                order_meta: {
-                    return_url: "https://" + request.headers.get("host") + "/?order_id=" + orderId
-                }
-            })
+            body: JSON.stringify(orderData)
         });
         
         const data = await cfResponse.json();
+        console.log("Cashfree response:", JSON.stringify(data, null, 2));
         
         if(cfResponse.status !== 200) {
             throw new Error(data.message || "Failed to create order");
@@ -463,6 +469,26 @@ export default {
         }), { 
             status: 500,
             headers: { "content-type": "application/json" }
+        });
+      }
+    }
+
+    // Webhook endpoint (optional for payment notifications)
+    if (url.pathname === "/webhook" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        console.log("Webhook received:", JSON.stringify(body, null, 2));
+        
+        // Verify webhook signature here if needed
+        
+        return new Response(JSON.stringify({ status: "received" }), {
+          headers: { "content-type": "application/json" }
+        });
+      } catch (e) {
+        console.error("Webhook error:", e);
+        return new Response(JSON.stringify({ error: e.message }), { 
+          status: 500,
+          headers: { "content-type": "application/json" }
         });
       }
     }
