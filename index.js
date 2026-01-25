@@ -2,7 +2,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ================= 1. FRONTEND: PREMIUM NATIVE APP UI =================
     if (url.pathname === "/" && request.method === "GET") {
       const html = `
       <!DOCTYPE html>
@@ -22,6 +21,7 @@ export default {
                   margin: 0; 
                   padding: 0;
                   height: 100vh;
+                  height: 100dvh; /* Mobile Fix */
                   display: flex;
                   flex-direction: column;
                   overflow: hidden;
@@ -29,117 +29,80 @@ export default {
 
               /* --- HEADER --- */
               .app-header {
-                  padding: 20px 24px;
-                  padding-top: max(20px, env(safe-area-inset-top));
+                  padding: 16px 20px;
+                  padding-top: max(16px, env(safe-area-inset-top));
                   background: #ffffff;
                   display: flex;
                   align-items: center;
                   justify-content: space-between;
-                  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
-                  z-index: 10;
+                  border-bottom: 1px solid #f1f5f9;
               }
-              .brand { font-size: 22px; font-weight: 800; color: #111; letter-spacing: -0.5px; }
+              .brand { font-size: 20px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
               .secure-badge { 
-                  background: #ecfdf5; 
-                  color: #059669; 
-                  padding: 6px 10px; 
-                  border-radius: 8px; 
-                  font-size: 11px; 
-                  font-weight: 700; 
-                  display: flex; 
-                  align-items: center; 
-                  gap: 4px;
+                  background: #ecfdf5; color: #059669; padding: 4px 8px; border-radius: 6px; 
+                  font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px; 
               }
 
-              /* --- CONTENT --- */
+              /* --- CONTENT (Scrollable) --- */
               .content {
                   flex: 1;
                   padding: 24px;
-                  display: flex;
-                  flex-direction: column;
-                  justify-content: center;
+                  overflow-y: auto; /* Agar content jyada ho to scroll ho */
+                  padding-bottom: 100px; /* Button ke liye jagah */
               }
 
               .input-group { margin-bottom: 24px; }
-              .label { 
-                  font-size: 12px; 
-                  color: #64748b; 
-                  font-weight: 600; 
-                  margin-bottom: 8px; 
-                  text-transform: uppercase; 
-                  letter-spacing: 0.5px; 
-              }
+              .label { font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
               
               .input-wrapper {
                   background: #ffffff;
                   border: 1.5px solid #e2e8f0;
                   border-radius: 16px;
                   padding: 16px;
-                  display: flex;
-                  align-items: center;
-                  transition: all 0.2s ease;
+                  display: flex; align-items: center; transition: all 0.2s ease;
                   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
               }
-              .input-wrapper:focus-within { 
-                  border-color: #6366f1; 
-                  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); 
-                  transform: translateY(-1px);
-              }
-
-              /* SVG ICONS (Fixes Encoding Issue) */
+              .input-wrapper:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
               .icon { width: 24px; height: 24px; margin-right: 12px; fill: #94a3b8; }
               .input-wrapper:focus-within .icon { fill: #6366f1; }
+              
+              input { border: none; background: transparent; width: 100%; font-size: 18px; font-weight: 600; color: #0f172a; outline: none; }
+              input::placeholder { color: #cbd5e1; }
 
-              input { 
-                  border: none; 
-                  background: transparent; 
-                  width: 100%; 
-                  font-size: 18px; 
-                  font-weight: 600; 
-                  color: #0f172a; 
-                  outline: none;
-                  font-family: 'Inter', sans-serif;
-              }
-              input::placeholder { color: #cbd5e1; font-weight: 500; }
-
-              /* --- BOTTOM BUTTON --- */
+              /* --- STICKY FOOTER BUTTON (FIXED AT BOTTOM) --- */
               .footer {
-                  padding: 24px;
-                  padding-bottom: max(24px, env(safe-area-inset-bottom));
+                  position: fixed;
+                  bottom: 0;
+                  left: 0;
+                  width: 100%;
+                  padding: 20px 24px;
+                  padding-bottom: max(20px, env(safe-area-inset-bottom));
                   background: #ffffff;
                   border-top: 1px solid #f1f5f9;
+                  z-index: 50;
+                  box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
               }
 
               button {
                   width: 100%;
-                  padding: 18px;
-                  background: #6366f1; /* Indigo Color */
+                  padding: 16px;
+                  background: #6366f1;
                   color: white;
                   border: none;
-                  border-radius: 14px;
+                  border-radius: 12px;
                   font-size: 16px;
                   font-weight: 700;
                   cursor: pointer;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  gap: 8px;
-                  transition: 0.2s;
-                  box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+                  display: flex; justify-content: center; align-items: center; gap: 8px;
+                  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
               }
               button:active { transform: scale(0.98); }
-              button:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; }
+              button:disabled { background: #cbd5e1; box-shadow: none; }
 
-              /* --- FULL SCREEN PAYMENT OVERLAY --- */
+              /* --- FULL SCREEN OVERLAY --- */
               #payment-overlay {
-                  position: fixed;
-                  top: 0;
-                  left: 0;
-                  width: 100vw;
-                  height: 100vh;
-                  background: #ffffff;
-                  z-index: 99999;
-                  display: none;
+                  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                  background: #ffffff; z-index: 99999; display: none;
               }
           </style>
       </head>
@@ -182,53 +145,42 @@ export default {
 
           <script>
               let cashfree;
-              try {
-                  cashfree = Cashfree({ mode: "production" });
-              } catch(e) { console.error(e); }
+              try { cashfree = Cashfree({ mode: "production" }); } catch(e) { console.error(e); }
 
               async function startNativePayment() {
                   const amount = document.getElementById("amount").value;
                   const phone = document.getElementById("phone").value;
                   const btn = document.getElementById("pay-btn");
                   const overlay = document.getElementById("payment-overlay");
-                  
-                  // Elements to hide
                   const uiElements = [document.getElementById("header"), document.getElementById("main-content"), document.getElementById("footer")];
 
-                  if(!amount || !phone) return alert("Please enter valid details");
+                  if(!amount || !phone) return alert("Please fill details");
 
                   btn.innerHTML = 'Processing...';
                   btn.disabled = true;
 
                   try {
-                      // 1. Backend Call
                       const res = await fetch("/create-order", {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ amount, phone })
                       });
                       const data = await res.json();
-
                       if (!data.payment_session_id) throw new Error(data.message || "Order Failed");
 
-                      // 2. Hide UI & Show Full Screen Overlay
                       uiElements.forEach(el => el.style.display = 'none');
                       overlay.style.display = 'block';
 
-                      // 3. Launch Cashfree
                       cashfree.checkout({
                           paymentSessionId: data.payment_session_id,
                           redirectTarget: overlay,
-                          appearance: {
-                              theme: "light",
-                          }
+                          appearance: { theme: "light" }
                       });
-
                   } catch (e) {
                       alert("Error: " + e.message);
                       btn.innerHTML = 'Proceed to Pay';
                       btn.disabled = false;
-                      // Restore UI
-                      uiElements.forEach(el => el.style.display = 'flex');
+                      uiElements.forEach(el => el.style.display = 'flex'); // Header wapis flex me layen
+                      document.getElementById("footer").style.display = 'block'; // Footer block
                       overlay.style.display = 'none';
                   }
               }
@@ -236,19 +188,15 @@ export default {
       </body>
       </html>
       `;
-      // Fix Encoding Issue Here: charset=utf-8 added
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
 
-    // ================= 2. BACKEND API =================
+    // Backend Same Rahega
     if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
-        
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
-        const API_VERSION = "2023-08-01";
-        
         const orderId = "ORD_" + Date.now();
         
         const cfResponse = await fetch("https://api.cashfree.com/pg/orders", {
@@ -257,27 +205,21 @@ export default {
                 "Content-Type": "application/json",
                 "x-client-id": APP_ID,
                 "x-client-secret": SECRET_KEY,
-                "x-api-version": API_VERSION
+                "x-api-version": "2023-08-01"
             },
             body: JSON.stringify({
                 order_id: orderId,
                 order_amount: parseFloat(body.amount),
                 order_currency: "INR",
-                customer_details: {
-                    customer_id: "cust_" + Date.now(),
-                    customer_phone: body.phone
-                }
+                customer_details: { customer_id: "cust_" + Date.now(), customer_phone: body.phone }
             })
         });
-
         const data = await cfResponse.json();
         return new Response(JSON.stringify(data), { headers: { "content-type": "application/json" } });
-
       } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500 });
       }
     }
-
     return new Response("Not Found", { status: 404 });
   }
 };
