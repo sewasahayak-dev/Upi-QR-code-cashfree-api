@@ -10,73 +10,78 @@ export default {
       <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Sewa Sahayak Pay</title>
+          <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
           <style>
-              body { font-family: -apple-system, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-              .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; width: 90%; max-width: 380px; }
-              h2 { color: #333; margin-bottom: 5px; }
-              p { color: #666; font-size: 14px; margin-bottom: 20px; }
+              body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+              .card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 420px; overflow: hidden; }
+              .header { padding: 20px; background: #6c5ce7; color: white; text-align: center; }
+              h2 { margin: 0; font-size: 22px; }
               
-              input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
-              input:focus { border-color: #6c5ce7; }
-              
-              button { width: 100%; padding: 14px; background: #6c5ce7; color: white; border: none; border-radius: 8px; font-size: 16px; margin-top: 15px; cursor: pointer; font-weight: bold; }
+              .form-box { padding: 20px; }
+              input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+              button { width: 100%; padding: 14px; background: #00b894; color: white; border: none; border-radius: 8px; font-size: 16px; margin-top: 10px; cursor: pointer; font-weight: bold; }
               button:disabled { background: #ccc; }
 
-              #qr-area { margin-top: 20px; display: none; flex-direction: column; align-items: center; padding-top: 15px; border-top: 1px dashed #ccc; }
-              img.qr-code { width: 220px; height: 220px; border-radius: 10px; border: 1px solid #eee; }
-              .scan-msg { margin-top: 10px; font-weight: bold; color: #00b894; }
+              /* Payment Frame (Jahan Cashfree load hoga) */
+              #payment-frame { width: 100%; height: 500px; border: none; display: none; }
           </style>
       </head>
       <body>
           <div class="card">
-              <h2>Sewa Sahayak</h2>
-              <p>Secure UPI Payment</p>
+              <div class="header">
+                  <h2>Sewa Sahayak</h2>
+                  <small>Secure Payments</small>
+              </div>
               
-              <div id="form-section">
+              <div class="form-box" id="input-section">
                   <input type="number" id="amount" placeholder="Amount (₹)" value="1" />
                   <input type="tel" id="phone" placeholder="Phone Number" value="9999999999" />
-                  <input type="text" id="remark" placeholder="Purpose" value="Payment" />
-                  <button onclick="generateQR()" id="pay-btn">Generate QR Code</button>
+                  <button onclick="startPayment()" id="pay-btn">Pay Now</button>
               </div>
 
-              <div id="qr-area">
-                  <div id="loader" style="color:#888;">Generating Link...</div>
-              </div>
+              <div id="payment-frame"></div>
           </div>
 
           <script>
-              async function generateQR() {
+              let cashfree;
+              try {
+                  cashfree = Cashfree({ mode: "production" });
+              } catch(e) { console.error(e); }
+
+              async function startPayment() {
                   const amount = document.getElementById("amount").value;
                   const phone = document.getElementById("phone").value;
-                  const remark = document.getElementById("remark").value;
                   const btn = document.getElementById("pay-btn");
-                  const qrArea = document.getElementById("qr-area");
-                  const formSec = document.getElementById("form-section");
+                  const frame = document.getElementById("payment-frame");
+                  const inputSec = document.getElementById("input-section");
 
-                  if(!amount || !phone) return alert("Please fill details");
+                  if(!amount || !phone) return alert("Fill all details");
 
                   btn.innerText = "Processing...";
                   btn.disabled = true;
 
                   try {
-                      const res = await fetch("/create-link", {
+                      // 1. Create Order (Standard API)
+                      const res = await fetch("/create-order", {
                           method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ amount, phone, remark })
+                          body: JSON.stringify({ amount, phone })
                       });
                       const data = await res.json();
 
-                      if (!data.link_url) throw new Error(data.message || "Failed to create link");
+                      if (!data.payment_session_id) throw new Error(data.message || "Order Failed");
 
-                      formSec.style.display = "none";
-                      qrArea.style.display = "flex";
-                      
-                      // Link ko QR Image me badalna
-                      qrArea.innerHTML = \`
-                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=\${encodeURIComponent(data.link_url)}" class="qr-code" />
-                          <div class="scan-msg">Scan & Pay ₹\${amount}</div>
-                          <p style="font-size:12px; color:#888; margin-top:10px">Link sent to \${phone}</p>
-                          <button onclick="location.reload()" style="background:#555; margin-top:15px; padding:10px; font-size:14px; color:white; border:none; border-radius:5px;">New Payment</button>
-                      \`;
+                      // 2. Embed Cashfree UI
+                      inputSec.style.display = "none"; // Form chhupao
+                      frame.style.display = "block";   // Frame dikhao
+
+                      // Ye Cashfree ke page ko DIV ke andar load kar dega
+                      cashfree.checkout({
+                          paymentSessionId: data.payment_session_id,
+                          redirectTarget: document.getElementById("payment-frame"),
+                          appearance: {
+                              theme: "light",
+                          }
+                      });
 
                   } catch (e) {
                       alert("Error: " + e.message);
@@ -91,23 +96,19 @@ export default {
       return new Response(html, { headers: { "content-type": "text/html" } });
     }
 
-    // ================= 2. BACKEND API =================
-    if (url.pathname === "/create-link" && request.method === "POST") {
+    // ================= 2. BACKEND API (Standard Orders) =================
+    if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
         
-        // Settings se Keys load karna
+        // ENV Variables (Settings se keys)
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
         
-        if(!APP_ID || !SECRET_KEY) {
-            return new Response(JSON.stringify({ message: "API Keys not found in Dashboard Settings" }), { status: 500 });
-        }
-
-        const linkId = "LNK_" + Date.now();
+        const orderId = "ORD_" + Date.now();
         
-        // ✅ CORRECTED URL: 'https://api.cashfree.com/pg/links' (Added /pg/)
-        const cfResponse = await fetch("https://api.cashfree.com/pg/links", {
+        // ✅ STANDARD ORDER API (Ye Block Nahi Hoti)
+        const cfResponse = await fetch("https://api.cashfree.com/pg/orders", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -116,17 +117,12 @@ export default {
                 "x-api-version": "2023-08-01"
             },
             body: JSON.stringify({
-                link_id: linkId,
-                link_amount: parseFloat(body.amount),
-                link_currency: "INR",
-                link_purpose: body.remark,
+                order_id: orderId,
+                order_amount: parseFloat(body.amount),
+                order_currency: "INR",
                 customer_details: {
-                    customer_phone: body.phone,
-                    customer_email: "customer@example.com"
-                },
-                link_notify: {
-                    send_sms: true,
-                    send_email: false
+                    customer_id: "cust_" + Date.now(),
+                    customer_phone: body.phone
                 }
             })
         });
@@ -135,7 +131,7 @@ export default {
         return new Response(JSON.stringify(data), { headers: { "content-type": "application/json" } });
 
       } catch (e) {
-        return new Response(JSON.stringify({ message: e.message }), { status: 500 });
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
       }
     }
 
