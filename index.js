@@ -144,8 +144,8 @@ export default {
             customer_name: "Customer"
           },
           order_meta: {
-            return_url: \`https://\${url.hostname}/?order_id={order_id}&status=success\`,
-            notify_url: \`https://\${url.hostname}/webhook\`
+            return_url: `https://${url.hostname}/?order_id=${orderId}&status=success`,
+            notify_url: `https://${url.hostname}/webhook`
           }
         };
 
@@ -170,7 +170,7 @@ export default {
 
         return new Response(JSON.stringify({
           success: true,
-          payment_link: \`https://payments.cashfree.com/order/#\${data.payment_session_id}\`
+          payment_link: `https://payments.cashfree.com/order/#${data.payment_session_id}`
         }), { headers: { "content-type": "application/json" } });
 
       } catch (error) {
