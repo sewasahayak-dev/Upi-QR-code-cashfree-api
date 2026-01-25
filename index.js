@@ -3,7 +3,40 @@ export default {
     const url = new URL(request.url);
 
     // ------------------------------------------------------------------
-    // 1. FRONTEND UI
+    // 1. PAYMENT RETURN/SUCCESS PAGE
+    // ------------------------------------------------------------------
+    if (url.pathname === "/" && request.method === "GET" && url.searchParams.get("order_id")) {
+      const orderId = url.searchParams.get("order_id");
+      const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Status - Sewa Sahayak</title>
+            <style>
+                body { font-family: sans-serif; background: #f0fdf4; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%; width: 400px; }
+                .icon { width: 80px; height: 80px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: white; font-size: 40px; }
+                h1 { color: #15803d; margin: 0 0 10px; }
+                p { color: #64748b; margin-bottom: 25px; }
+                button { background: #22c55e; color: white; border: none; padding: 12px 30px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="icon">✓</div>
+                <h1>Payment Successful!</h1>
+                <p>Order ID: ${orderId}<br>Thank you for using Sewa Sahayak.</p>
+                <button onclick="window.location.href='/'">Make Another Payment</button>
+            </div>
+        </body>
+        </html>`;
+      return new Response(html, { headers: { "content-type": "text/html" } });
+    }
+
+    // ------------------------------------------------------------------
+    // 2. MAIN PAYMENT PAGE (UI - EMBEDDED)
     // ------------------------------------------------------------------
     if (url.pathname === "/" && request.method === "GET") {
       const html = `
@@ -11,99 +44,204 @@ export default {
       <html lang="en">
       <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Sewa Sahayak</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Sewa Sahayak Payment</title>
+          <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
           <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
           <style>
-              body { font-family: 'Poppins', sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-              .card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
-              input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #eee; border-radius: 10px; font-size: 16px; outline: none; }
-              input:focus { border-color: #6366f1; }
-              button { width: 100%; padding: 14px; background: #6366f1; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-              button:disabled { background: #ccc; }
-              .error { color: #dc2626; background: #fef2f2; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; display: none; text-align: left; word-break: break-all; border: 1px solid #fecaca; }
-              #qr-view, #success-view { display: none; }
-              #qrcode { margin: 20px auto; display: flex; justify-content: center; }
-              #qrcode img { border: 5px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 10px; }
-              .vpa-box { background: #eff6ff; color: #1e40af; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; border: 1px dashed #bfdbfe; font-size: 14px; }
+              * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+              body { background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+              
+              .container {
+                  background: #ffffff;
+                  width: 100%;
+                  max-width: 450px; /* Slightly wider for embedded frame */
+                  border-radius: 24px;
+                  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+                  overflow: hidden;
+                  position: relative;
+                  min-height: 400px;
+              }
+              
+              .header {
+                  background: #4f46e5;
+                  padding: 20px 24px;
+                  text-align: center;
+                  color: white;
+              }
+              .header h2 { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
+              .header p { font-size: 13px; opacity: 0.9; }
+              
+              .form-body { padding: 30px 24px; transition: opacity 0.3s ease; }
+              
+              /* Payment Container for Embedded View */
+              #payment-container {
+                  width: 100%;
+                  height: 600px; /* Adjust height for payment options */
+                  display: none; /* Hidden by default */
+              }
+
+              .input-group { margin-bottom: 20px; }
+              .label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+              
+              .input-wrapper {
+                  position: relative;
+                  background: #f9fafb;
+                  border: 2px solid #e5e7eb;
+                  border-radius: 14px;
+                  transition: all 0.3s;
+              }
+              .input-wrapper:focus-within { border-color: #4f46e5; background: #fff; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+              
+              input {
+                  width: 100%;
+                  padding: 16px;
+                  border: none;
+                  background: transparent;
+                  font-size: 16px;
+                  font-weight: 500;
+                  color: #1f2937;
+                  outline: none;
+              }
+              
+              /* QR Code Hint */
+              .qr-hint {
+                  background: #eff6ff;
+                  border: 1px dashed #3b82f6;
+                  border-radius: 12px;
+                  padding: 12px;
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  margin-bottom: 24px;
+              }
+              .qr-icon { width: 32px; height: 32px; flex-shrink: 0; }
+              .qr-text { font-size: 12px; color: #1e40af; line-height: 1.4; }
+              
+              button {
+                  width: 100%;
+                  padding: 18px;
+                  background: #4f46e5;
+                  color: white;
+                  border: none;
+                  border-radius: 14px;
+                  font-size: 16px;
+                  font-weight: 700;
+                  cursor: pointer;
+                  transition: transform 0.1s;
+                  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+              }
+              button:active { transform: scale(0.98); }
+              button:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; }
+              
+              .loader {
+                  width: 20px; height: 20px; border: 3px solid #fff; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; margin-right: 10px; vertical-align: middle;
+              }
+              @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+              .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #9ca3af; }
           </style>
       </head>
       <body>
-          <div class="card">
-              <h2>Sewa Sahayak</h2>
+          <div class="container">
+              <div class="header">
+                  <h2>Sewa Sahayak</h2>
+                  <p>Secure Instant Payment</p>
+              </div>
               
-              <div id="form-view">
-                  <p style="color:#666; font-size:14px;">Instant UPI Payment</p>
-                  <input type="number" id="amount" placeholder="Amount (₹)" value="1.00">
-                  <input type="tel" id="phone" placeholder="Phone Number" maxlength="10">
-                  <button id="btn" onclick="process()">Pay Now</button>
-                  <div id="error-box" class="error"></div>
+              <div class="form-body" id="userForm">
+                  <div class="qr-hint">
+                      <svg class="qr-icon" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
+                      </svg>
+                      <div class="qr-text">
+                          Tap <strong>Pay Now</strong> to generate <strong>UPI QR Code</strong> right here.
+                      </div>
+                  </div>
+
+                  <div class="input-group">
+                      <label class="label">Amount (INR)</label>
+                      <div class="input-wrapper">
+                          <input type="number" id="amount" placeholder="Enter Amount" value="1">
+                      </div>
+                  </div>
+                  
+                  <div class="input-group">
+                      <label class="label">Phone Number</label>
+                      <div class="input-wrapper">
+                          <input type="tel" id="phone" placeholder="999XXXXXXX" maxlength="10">
+                      </div>
+                  </div>
+                  
+                  <button id="payBtn" onclick="initiatePayment()">
+                      Pay Now
+                  </button>
+                  
+                  <div class="footer">Secured by Cashfree Payments</div>
               </div>
 
-              <div id="qr-view">
-                  <p style="margin-bottom:10px; font-weight:600;">Scan or Pay to UPI ID</p>
-                  <div class="vpa-box" id="vpa-txt">Fetching...</div>
-                  <div id="qrcode"></div>
-                  <button onclick="location.reload()" style="background:#eee; color:#333;">Cancel</button>
-              </div>
-
-              <div id="success-view">
-                  <div style="font-size:50px; color:#22c55e;">✓</div>
-                  <h3 style="color:#15803d;">Payment Successful</h3>
-                  <button onclick="location.reload()" style="background:#22c55e;">Done</button>
-              </div>
+              <div id="payment-container"></div>
           </div>
 
           <script>
-              async function process() {
-                  const amt = document.getElementById('amount').value;
-                  const ph = document.getElementById('phone').value;
-                  const btn = document.getElementById('btn');
-                  const errBox = document.getElementById('error-box');
+              const cashfree = Cashfree({ mode: "production" });
 
-                  if(!amt || ph.length !== 10) { alert("Invalid Input"); return; }
+              async function initiatePayment() {
+                  const amount = document.getElementById('amount').value;
+                  const phone = document.getElementById('phone').value;
+                  const btn = document.getElementById('payBtn');
+                  const formDiv = document.getElementById('userForm');
+                  const paymentDiv = document.getElementById('payment-container');
+                  
+                  if(!amount || !phone || phone.length !== 10) {
+                      alert("Please enter valid amount and 10-digit phone number");
+                      return;
+                  }
 
-                  btn.disabled = true; btn.innerText = "Processing...";
-                  errBox.style.display = 'none';
+                  btn.disabled = true;
+                  btn.innerHTML = '<span class="loader"></span> Generating QR...';
 
                   try {
-                      const res = await fetch("/api/get-qr", {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ amount: amt, phone: ph })
+                      // 1. Create Order on Backend
+                      const res = await fetch("/create-order", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ amount, phone })
                       });
+                      
                       const data = await res.json();
+                      
+                      if(!res.ok || !data.payment_session_id) {
+                          throw new Error(data.message || data.error || "Order creation failed");
+                      }
 
-                      if(!res.ok) throw new Error(data.message || JSON.stringify(data));
+                      // 2. Hide Input Form, Show Payment Container
+                      formDiv.style.display = 'none';
+                      paymentDiv.style.display = 'block';
 
-                      document.getElementById('form-view').style.display = 'none';
-                      document.getElementById('qr-view').style.display = 'block';
-                      document.getElementById('vpa-txt').innerText = data.vpa || "Scan QR Below";
-
-                      new QRCode(document.getElementById("qrcode"), {
-                          text: data.upi_link, width: 200, height: 200
+                      // 3. Mount Cashfree Component (This keeps user on your URL)
+                      const components = cashfree.create("components", {
+                          paymentSessionId: data.payment_session_id,
+                          returnUrl: window.location.origin + "/?order_id={order_id}",
+                          styles: {
+                              theme: "light", // or 'dark'
+                              fontFamily: "Poppins, sans-serif"
+                          }
                       });
 
-                      checkStatus(data.order_id);
+                      // Render the payment UI inside our div
+                      components.mount("#payment-container");
 
-                  } catch(e) {
-                      errBox.style.display = 'block';
-                      errBox.innerHTML = "<strong>Error:</strong> " + e.message;
-                      btn.disabled = false; btn.innerText = "Pay Now";
+                  } catch (err) {
+                      console.error(err);
+                      alert("Payment Error: " + err.message);
+                      btn.disabled = false;
+                      btn.innerHTML = 'Pay Now';
+                      
+                      // Restore Form if error
+                      formDiv.style.display = 'block';
+                      paymentDiv.style.display = 'none';
                   }
-              }
-
-              function checkStatus(oid) {
-                  setInterval(async () => {
-                      try {
-                          const r = await fetch("/api/status?id=" + oid);
-                          const d = await r.json();
-                          if(d.status === "PAID") {
-                              document.getElementById('qr-view').style.display = 'none';
-                              document.getElementById('success-view').style.display = 'block';
-                          }
-                      } catch(e){}
-                  }, 3000);
               }
           </script>
       </body>
@@ -113,109 +251,63 @@ export default {
     }
 
     // ------------------------------------------------------------------
-    // 2. API: CREATE & GET LINK
+    // 3. API: CREATE ORDER (Backend)
     // ------------------------------------------------------------------
-    if (url.pathname === "/api/get-qr" && request.method === "POST") {
+    if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
         const APP_ID = env.CASHFREE_APP_ID;
-        const SECRET = env.CASHFREE_SECRET_KEY;
-        const BASE = "https://api.cashfree.com/pg"; // Production
+        const SECRET_KEY = env.CASHFREE_SECRET_KEY;
 
-        if (!APP_ID || !SECRET) throw new Error("API Keys Missing");
+        if (!APP_ID || !SECRET_KEY) {
+            throw new Error("API Keys are missing in Environment Variables");
+        }
 
-        // STEP 1: CREATE ORDER
-        const orderId = "ORD_" + Date.now();
-        const amountFixed = parseFloat(body.amount).toFixed(2); // Fix Decimal Issue
-
-        const orderResp = await fetch(BASE + "/orders", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-client-id": APP_ID, "x-client-secret": SECRET, "x-api-version": "2022-09-01"
-            },
-            body: JSON.stringify({
-                order_id: orderId,
-                order_amount: parseFloat(amountFixed),
-                order_currency: "INR",
-                customer_details: {
-                    customer_id: "CUST_" + Date.now(),
-                    customer_phone: body.phone,
-                    customer_email: "raj.bazaarika@example.com" // Required field
-                }
-            })
-        });
-
-        const orderData = await orderResp.json();
-        if (!orderResp.ok) return new Response(JSON.stringify(orderData), { status: 400 });
-
-        const sessionId = orderData.payment_session_id;
+        const uniqueId = Date.now().toString();
         
-        // DEBUG CHECK: Did we get a session?
-        if(!sessionId) {
-            return new Response(JSON.stringify({ message: "No Session ID returned from Create Order", debug: orderData }), { status: 400 });
-        }
+        const payload = {
+            order_id: "ORD_" + uniqueId,
+            order_amount: parseFloat(body.amount),
+            order_currency: "INR",
+            customer_details: {
+                customer_id: "CUST_" + uniqueId,
+                customer_phone: body.phone,
+                customer_email: "raj.bazaarika@example.com"
+            },
+            order_meta: {
+                // Return URL is still needed for final success redirection handling
+                return_url: `https://${url.hostname}/?order_id={order_id}`,
+                payment_methods: "upi" 
+            }
+        };
 
-        // STEP 2: GET UPI LINK (Using /orders/pay)
-        // Note: Using 2022-09-01 version which is very stable for S2S
-        const payResp = await fetch(BASE + "/orders/pay", {
+        const cfRes = await fetch("https://api.cashfree.com/pg/orders", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-client-id": APP_ID, "x-client-secret": SECRET, "x-api-version": "2022-09-01"
+                "x-client-id": APP_ID,
+                "x-client-secret": SECRET_KEY,
+                "x-api-version": "2023-08-01"
             },
-            body: JSON.stringify({
-                payment_session_id: sessionId,
-                payment_method: {
-                    upi: { channel: "link" } 
-                }
-            })
+            body: JSON.stringify(payload)
         });
 
-        const payData = await payResp.json();
-
-        if (!payResp.ok) {
-             return new Response(JSON.stringify({ 
-                 message: "Pay API Failed: " + (payData.message || "Unknown"), 
-                 debug_response: payData,
-                 sent_session_id: sessionId 
-             }), { status: 400 });
+        const data = await cfRes.json();
+        
+        if (!cfRes.ok) {
+            return new Response(JSON.stringify({ error: data.message }), { status: 400 });
         }
 
-        // STEP 3: EXTRACT DATA
-        let link = null;
-        if(payData.data && payData.data.payload) {
-             link = payData.data.payload.default || payData.data.payload.qrcode;
-        }
-
-        if(!link) return new Response(JSON.stringify({ message: "No Link Found", debug: payData }), { status: 400 });
-
-        // Extract VPA
-        let vpa = "Scan QR";
-        try {
-            const m = link.match(/[?&]pa=([^&]+)/);
-            if(m && m[1]) vpa = decodeURIComponent(m[1]);
-        } catch(e){}
-
-        return new Response(JSON.stringify({ order_id: orderId, upi_link: link, vpa: vpa }), { headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify(data), { 
+            headers: { "Content-Type": "application/json" } 
+        });
 
       } catch (e) {
-        return new Response(JSON.stringify({ message: e.message }), { status: 500 });
+        return new Response(JSON.stringify({ error: e.message }), { 
+            status: 500, 
+            headers: { "Content-Type": "application/json" } 
+        });
       }
-    }
-
-    // ------------------------------------------------------------------
-    // 3. CHECK STATUS
-    // ------------------------------------------------------------------
-    if (url.pathname === "/api/status" && request.method === "GET") {
-        const id = url.searchParams.get("id");
-        try {
-            const r = await fetch(`https://api.cashfree.com/pg/orders/${id}`, {
-                headers: { "x-client-id": env.CASHFREE_APP_ID, "x-client-secret": env.CASHFREE_SECRET_KEY, "x-api-version": "2022-09-01" }
-            });
-            const d = await r.json();
-            return new Response(JSON.stringify({ status: d.order_status }), { headers: { "Content-Type": "application/json" } });
-        } catch(e) { return new Response("Error", { status: 500 }); }
     }
 
     return new Response("Not Found", { status: 404 });
