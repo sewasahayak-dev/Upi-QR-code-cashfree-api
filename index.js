@@ -3,9 +3,29 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/" && request.method === "GET") {
-      // Check if it's a payment return
       const orderId = url.searchParams.get("order_id");
+      const status = url.searchParams.get("status");
+      
       if (orderId) {
+        let title, message, iconColor, bgColor;
+        
+        if (status === "success") {
+          title = "Payment Successful!";
+          message = `Your payment of ₹${url.searchParams.get("amount")} has been processed successfully.`;
+          iconColor = "#10b981";
+          bgColor = "#d1fae5";
+        } else if (status === "failed") {
+          title = "Payment Failed";
+          message = "Your payment could not be processed. Please try again.";
+          iconColor = "#ef4444";
+          bgColor = "#fee2e2";
+        } else {
+          title = "Payment Processing";
+          message = "We're verifying your payment. This may take a few moments.";
+          iconColor = "#f59e0b";
+          bgColor = "#fef3c7";
+        }
+
         const html = `
         <!DOCTYPE html>
         <html lang="en">
@@ -33,46 +53,76 @@ export default {
                     max-width: 400px;
                     width: 100%;
                 }
-                .success-icon {
+                .status-icon {
                     width: 80px;
                     height: 80px;
-                    background: #10b981;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     margin: 0 auto 20px;
+                    background: ${bgColor};
                 }
-                .success-icon svg {
+                .status-icon svg {
                     width: 40px;
                     height: 40px;
-                    color: white;
+                    color: ${iconColor};
                 }
-                h1 { color: #059669; margin-bottom: 10px; }
-                p { color: #64748b; margin-bottom: 30px; }
+                h1 { color: ${iconColor}; margin-bottom: 10px; font-size: 24px; }
+                p { color: #64748b; margin-bottom: 20px; line-height: 1.6; }
+                .order-id { 
+                    background: #f1f5f9; 
+                    padding: 8px 12px; 
+                    border-radius: 8px; 
+                    font-family: monospace; 
+                    font-size: 14px; 
+                    margin: 15px 0; 
+                    word-break: break-all;
+                }
+                .button-group {
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 30px;
+                }
                 button {
-                    background: #6366f1;
-                    color: white;
-                    border: none;
-                    padding: 12px 30px;
+                    flex: 1;
+                    padding: 12px 20px;
                     border-radius: 10px;
                     font-size: 16px;
                     font-weight: 600;
                     cursor: pointer;
+                    border: none;
+                    transition: all 0.2s;
                 }
-                button:hover { background: #4f46e5; }
+                .btn-primary {
+                    background: #6366f1;
+                    color: white;
+                }
+                .btn-primary:hover { background: #4f46e5; }
+                .btn-secondary {
+                    background: #f1f5f9;
+                    color: #64748b;
+                }
+                .btn-secondary:hover { background: #e2e8f0; }
             </style>
         </head>
         <body>
             <div class="status-container">
-                <div class="success-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
+                <div class="status-icon">
+                    ${status === 'success' ? 
+                      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' :
+                      status === 'failed' ?
+                      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' :
+                      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                    }
                 </div>
-                <h1>Payment Successful!</h1>
-                <p>Your payment has been processed successfully. Order ID: ${orderId}</p>
-                <button onclick="window.location.href='/'">Back to Home</button>
+                <h1>${title}</h1>
+                <p>${message}</p>
+                <div class="order-id">Order: ${orderId}</div>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="window.location.href='/'">New Payment</button>
+                    <button class="btn-primary" onclick="window.close()">Close</button>
+                </div>
             </div>
         </body>
         </html>
@@ -80,18 +130,16 @@ export default {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
       }
 
-      // Main page
+      // Main payment page
       const html = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Sewa Sahayak</title>
-          <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+          <title>Sewa Sahayak - UPI QR Payment</title>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-              /* --- RESET & BASE --- */
               * { 
                   box-sizing: border-box; 
                   -webkit-tap-highlight-color: transparent; 
@@ -111,7 +159,6 @@ export default {
                   flex-direction: column;
               }
 
-              /* --- HEADER --- */
               .app-header {
                   padding: 16px 20px;
                   padding-top: max(16px, env(safe-area-inset-top));
@@ -142,7 +189,6 @@ export default {
                   gap: 4px; 
               }
 
-              /* --- CONTENT --- */
               .content {
                   flex: 1;
                   padding: 24px;
@@ -216,7 +262,6 @@ export default {
                   color: #cbd5e1; 
               }
 
-              /* --- FOOTER --- */
               .footer {
                   position: fixed;
                   bottom: 0;
@@ -272,8 +317,31 @@ export default {
               @keyframes spin {
                   to { transform: rotate(360deg); }
               }
+
+              .qr-info {
+                  background: #f0f9ff;
+                  border: 1px solid #bae6fd;
+                  border-radius: 12px;
+                  padding: 16px;
+                  margin-top: 20px;
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+              }
               
-              /* Mobile optimizations */
+              .qr-info svg {
+                  width: 24px;
+                  height: 24px;
+                  color: #0369a1;
+                  flex-shrink: 0;
+              }
+              
+              .qr-info p {
+                  color: #0369a1;
+                  font-size: 14px;
+                  line-height: 1.5;
+              }
+              
               @media (max-width: 480px) {
                   .content {
                       padding: 20px;
@@ -320,17 +388,24 @@ export default {
                       <input type="tel" id="phone" placeholder="9999999999" value="9999999999" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" />
                   </div>
               </div>
+              
+              <div class="qr-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <p>You will be redirected to a secure UPI QR code page. Scan the QR code with any UPI app to complete payment.</p>
+              </div>
           </div>
 
           <div class="footer">
-              <button onclick="startPayment()" id="pay-btn">
-                  Proceed to Pay
+              <button onclick="generateUPIQR()" id="pay-btn">
+                  Generate UPI QR Code
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
           </div>
 
           <script>
-              async function startPayment() {
+              async function generateUPIQR() {
                   const amount = document.getElementById("amount").value;
                   const phone = document.getElementById("phone").value;
                   const btn = document.getElementById("pay-btn");
@@ -345,11 +420,11 @@ export default {
                       return;
                   }
 
-                  btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+                  btn.innerHTML = '<span class="loading-spinner"></span> Generating QR...';
                   btn.disabled = true;
 
                   try {
-                      const res = await fetch("/create-order", {
+                      const res = await fetch("/create-upi-order", {
                           method: "POST", 
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ 
@@ -364,17 +439,12 @@ export default {
                           throw new Error(data.message || data.error || "Failed to create order");
                       }
 
-                      // Open Cashfree checkout in new tab
-                      const cashfree = Cashfree({ mode: "production" });
-                      
-                      cashfree.checkout({
-                          paymentSessionId: data.payment_session_id,
-                          redirectTarget: "_self" // This opens directly in current window
-                      });
+                      // Redirect to Cashfree UPI QR page
+                      window.location.href = \`https://payments.cashfree.com/order/#\${data.payment_session_id}\`;
                       
                   } catch (error) {
-                      console.error("Payment initiation error:", error);
-                      btn.innerHTML = 'Proceed to Pay <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+                      console.error("QR generation error:", error);
+                      btn.innerHTML = 'Generate UPI QR Code <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
                       btn.disabled = false;
                       alert("Error: " + error.message);
                   }
@@ -389,11 +459,10 @@ export default {
                   this.value = this.value.replace(/[^0-9]/g, '').slice(0,10);
               });
               
-              // Prevent form submission on enter
               document.addEventListener('keydown', function(e) {
                   if(e.key === 'Enter') {
                       e.preventDefault();
-                      startPayment();
+                      generateUPIQR();
                   }
               });
           </script>
@@ -407,15 +476,16 @@ export default {
       });
     }
 
-    // Create order endpoint
-    if (url.pathname === "/create-order" && request.method === "POST") {
+    // Create UPI QR order endpoint
+    if (url.pathname === "/create-upi-order" && request.method === "POST") {
       try {
         const body = await request.json();
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
-        const orderId = "ORD_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+        const orderId = "UPI_QR_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
         const customerId = "cust_" + Date.now();
         
+        // Cashfree UPI QR specific order data
         const orderData = {
             order_id: orderId,
             order_amount: parseFloat(body.amount),
@@ -423,19 +493,25 @@ export default {
             customer_details: { 
                 customer_id: customerId, 
                 customer_phone: body.phone,
-                customer_email: `${body.phone}@cashfree.com`
+                customer_email: `${body.phone}@sewasahayak.com`
             },
+            // UPI QR specific settings
             order_meta: {
-                return_url: `https://${request.headers.get("host")}/?order_id=${orderId}`,
+                return_url: `https://${request.headers.get("host")}/?order_id=${orderId}&amount=${body.amount}&status=success`,
                 notify_url: `https://${request.headers.get("host")}/webhook`
             },
+            // Force UPI QR payment method only
             order_tags: {
+                payment_method: "upi_qr",
                 merchant_defined_tag: "sewa_sahayak"
-            }
+            },
+            // Optional: Set payment methods (Cashfree might still show other options)
+            // To strictly enforce only QR, we'll use their specific UPI QR endpoint
         };
         
-        console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
+        console.log("Creating UPI QR order:", orderData.order_id, "Amount:", orderData.order_amount);
         
+        // First create the order
         const cfResponse = await fetch("https://api.cashfree.com/pg/orders", {
             method: "POST",
             headers: {
@@ -447,14 +523,48 @@ export default {
             body: JSON.stringify(orderData)
         });
         
-        const data = await cfResponse.json();
-        console.log("Cashfree response:", JSON.stringify(data, null, 2));
+        const orderDataResponse = await cfResponse.json();
+        console.log("Order response:", orderDataResponse);
         
         if(cfResponse.status !== 200) {
-            throw new Error(data.message || "Failed to create order");
+            throw new Error(orderDataResponse.message || "Failed to create order");
         }
         
-        return new Response(JSON.stringify(data), { 
+        // Create payment session specifically for UPI QR
+        const sessionData = {
+            order_id: orderId,
+            payment_method: {
+                upi: {
+                    channel: "qrcode"  // This forces QR code display
+                }
+            },
+            customer_details: orderData.customer_details
+        };
+        
+        const sessionResponse = await fetch("https://api.cashfree.com/pg/orders/sessions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-client-id": APP_ID,
+                "x-client-secret": SECRET_KEY,
+                "x-api-version": "2023-08-01"
+            },
+            body: JSON.stringify(sessionData)
+        });
+        
+        const sessionDataResponse = await sessionResponse.json();
+        console.log("Session response:", sessionDataResponse);
+        
+        if(sessionResponse.status !== 200) {
+            throw new Error(sessionDataResponse.message || "Failed to create payment session");
+        }
+        
+        return new Response(JSON.stringify({
+            payment_session_id: sessionDataResponse.payment_session_id,
+            order_id: orderId,
+            amount: body.amount,
+            qr_url: `https://payments.cashfree.com/order/#${sessionDataResponse.payment_session_id}`
+        }), { 
             headers: { 
                 "content-type": "application/json",
                 "cache-control": "no-cache"
@@ -462,10 +572,10 @@ export default {
         });
         
       } catch (e) {
-        console.error("Order creation error:", e);
+        console.error("UPI QR order creation error:", e);
         return new Response(JSON.stringify({ 
             error: e.message,
-            details: "Order creation failed"
+            details: "Failed to generate UPI QR code"
         }), { 
             status: 500,
             headers: { "content-type": "application/json" }
@@ -473,15 +583,19 @@ export default {
       }
     }
 
-    // Webhook endpoint (optional for payment notifications)
+    // Webhook endpoint for payment notifications
     if (url.pathname === "/webhook" && request.method === "POST") {
       try {
         const body = await request.json();
-        console.log("Webhook received:", JSON.stringify(body, null, 2));
+        console.log("Payment webhook received:", JSON.stringify(body, null, 2));
         
-        // Verify webhook signature here if needed
+        // You can update your database here with payment status
+        // Verify webhook signature from Cashfree if needed
         
-        return new Response(JSON.stringify({ status: "received" }), {
+        return new Response(JSON.stringify({ 
+            status: "received",
+            message: "Webhook processed successfully"
+        }), {
           headers: { "content-type": "application/json" }
         });
       } catch (e) {
