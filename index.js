@@ -144,7 +144,8 @@ export default {
               <div class="form-body">
                   <div class="qr-hint">
                       <svg class="qr-icon" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> <rect x="3" y="3" width="7" height="7" stroke-width="2"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h4v-4H6v4H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2H6v4h6v-4h4v2zM6 8V6h4v2H6zm0 8v-2h4v2H6zm0 8v-2h4v2H6zm12-12V4h-4v4h4zm-4 8h4v-4h-4v4z" /> 
+                          <rect x="3" y="3" width="7" height="7" stroke-width="2"/>
                           <rect x="14" y="3" width="7" height="7" stroke-width="2"/>
                           <rect x="3" y="14" width="7" height="7" stroke-width="2"/>
                       </svg>
@@ -176,7 +177,7 @@ export default {
           </div>
 
           <script>
-              const cashfree = Cashfree({ mode: "production" }); // Make sure this is "production"
+              const cashfree = Cashfree({ mode: "production" });
 
               async function initiatePayment() {
                   const amount = document.getElementById('amount').value;
@@ -188,12 +189,10 @@ export default {
                       return;
                   }
 
-                  // UI Loading State
                   btn.disabled = true;
                   btn.innerHTML = '<span class="loader"></span> Processing...';
 
                   try {
-                      // 1. Create Order on Backend
                       const res = await fetch("/create-order", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
@@ -206,10 +205,9 @@ export default {
                           throw new Error(data.message || data.error || "Order creation failed");
                       }
 
-                      // 2. Open Cashfree Checkout (Handles QR Code display)
                       await cashfree.checkout({
                           paymentSessionId: data.payment_session_id,
-                          redirectTarget: "_self" // Opens in same tab
+                          redirectTarget: "_self"
                       });
 
                   } catch (err) {
@@ -232,9 +230,6 @@ export default {
     if (url.pathname === "/create-order" && request.method === "POST") {
       try {
         const body = await request.json();
-        
-        // --- SECRETS FROM ENV ---
-        // Make sure these are set in your Worker Variables!
         const APP_ID = env.CASHFREE_APP_ID;
         const SECRET_KEY = env.CASHFREE_SECRET_KEY;
 
@@ -251,10 +246,11 @@ export default {
             customer_details: {
                 customer_id: "CUST_" + uniqueId,
                 customer_phone: body.phone,
-                customer_email: "raj.bazaarika@example.com" // Placeholder email
+                customer_email: "raj.bazaarika@example.com"
             },
             order_meta: {
-                return_url: \`https://\${url.hostname}/?order_id={order_id}\`
+                // FIXED LINE BELOW - Removed unnecessary backslashes
+                return_url: `https://${url.hostname}/?order_id={order_id}`
             }
         };
 
