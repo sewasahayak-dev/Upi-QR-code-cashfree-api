@@ -1,4 +1,4 @@
-name = "upi-qr-code-cashfree-api"
+name = "cashfree-payment"
 main = "index.js"
 compatibility_date = "2024-01-01"
 
