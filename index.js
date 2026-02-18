@@ -9,7 +9,7 @@ export default {
 
     // --- ROUTES ---
 
-    // 1. URL से डायरेक्ट पेमेंट (New Feature with Redirect)
+    // 1. URL से डायरेक्ट पेमेंट (Instant Link)
     // Usage: /pay-link?amount=100&phone=9999999999&return_url=https://your-site.com/thank-you
     if (url.pathname === "/pay-link" && req.method === "GET") {
       return handleInstantLink(url, env);
@@ -20,7 +20,7 @@ export default {
       return createOrderAPI(req, env);
     }
 
-    // 3. पेमेंट पेज UI (Worker के अंदर रेंडर होने वाला पेज)
+    // 3. पेमेंट पेज UI (Flipkart Style - Worker के अंदर रेंडर होने वाला पेज)
     if (url.pathname === "/pay" && req.method === "GET") {
       const sessionId = url.searchParams.get("session_id");
       if(sessionId) return paymentUI(sessionId);
@@ -71,8 +71,7 @@ async function generateCashfreeOrder(amount, phone, customReturnUrl, env) {
   // डिफ़ॉल्ट URL अगर यूजर ने कुछ नहीं दिया
   let finalReturnUrl = customReturnUrl || "https://bazaarika.in/payment-success";
 
-  // URL में ?order_id={order_id} जोड़ना जरुरी है ताकि Cashfree आर्डर ID वापस भेज सके
-  // हम चेक करेंगे कि URL में पहले से '?' है या नहीं
+  // URL में ?order_id={order_id} जोड़ना जरुरी है
   if (finalReturnUrl.includes("?")) {
     finalReturnUrl = finalReturnUrl + "&order_id={order_id}";
   } else {
@@ -88,7 +87,7 @@ async function generateCashfreeOrder(amount, phone, customReturnUrl, env) {
       customer_phone: phone.replace(/\D/g, '')
     },
     order_meta: {
-      return_url: finalReturnUrl // यहाँ यूजर का कस्टम URL सेट हो रहा है
+      return_url: finalReturnUrl
     }
   };
 
@@ -107,25 +106,22 @@ async function generateCashfreeOrder(amount, phone, customReturnUrl, env) {
 }
 
 /* =========================================================
-   1. NEW: INSTANT URL LINK HANDLER (WITH REDIRECT SUPPORT)
+   1. INSTANT URL LINK HANDLER
 ========================================================= */
 async function handleInstantLink(url, env) {
   try {
     const amount = Number(url.searchParams.get("amount"));
     const phone = url.searchParams.get("phone");
-    
-    // यहाँ हम URL से 'return_url' या 'redirect_url' उठा रहे हैं
     const returnUrl = url.searchParams.get("return_url") || url.searchParams.get("redirect_url");
 
     if (!amount || amount < 1 || !phone) {
-      return new Response("Error: Please provide 'amount' and 'phone' in URL. Example: /pay-link?amount=100&phone=9999999999", { status: 400 });
+      return new Response("Error: Please provide 'amount' and 'phone' in URL.", { status: 400 });
     }
 
-    // Order Create करें और Return URL पास करें
     const data = await generateCashfreeOrder(amount, phone, returnUrl, env);
 
     if (data.payment_session_id) {
-      // सीधा HTML पेज return करें जो पेमेंट शुरू कर दे
+      // सीधा HTML पेज return करें जो Flipkart Style Payment दिखाएगा
       return paymentUI(data.payment_session_id);
     } else {
       return new Response("Error creating order: " + JSON.stringify(data), { status: 500 });
@@ -137,14 +133,14 @@ async function handleInstantLink(url, env) {
 }
 
 /* =========================================================
-   2. OLD API: CREATE ORDER (JSON Response)
+   2. API: CREATE ORDER (JSON Response)
 ========================================================= */
 async function createOrderAPI(req, env) {
   try {
     const body = await req.json();
     const amount = Number(body.amount);
     const phone = body.phone;
-    const returnUrl = body.return_url; // JSON body से return_url पढ़ें
+    const returnUrl = body.return_url;
 
     if (!amount || !phone) {
       return new Response(JSON.stringify({ error: "Invalid amount or phone" }), { status: 400, headers: corsHeaders() });
@@ -160,30 +156,46 @@ async function createOrderAPI(req, env) {
 }
 
 /* =========================================================
-   3. PAYMENT UI (HTML Page Generation)
+   3. PAYMENT UI (UPDATED: FLIPKART STYLE SEAMLESS)
 ========================================================= */
 function paymentUI(sessionId) {
+  // यह HTML Flipkart/Meesho जैसा अनुभव देने के लिए डिजाईन किया गया है
   const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment</title>
+  <title>Secure Payment</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <style>
-    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f4f6f8; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f3f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+    h2 { margin: 10px 0 5px; color: #2874f0; font-size: 20px; }
+    .subtitle { color: #878787; font-size: 13px; margin-bottom: 25px; }
+    
+    /* Loading Spinner */
+    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #2874f0; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    h3 { color: #333; margin-top: 20px; }
-    .container { text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+
+    /* Dropin Container Style */
+    #dropin-container { min-height: 300px; margin-top: 20px; text-align: left; }
+    
+    .secure-icon { color: green; font-size: 12px; margin-top: 15px; display: block; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="loader"></div>
-    <h3>Secure Payment</h3>
-    <p>Please wait, redirecting...</p>
+
+  <div class="card">
+    <h2>Complete Payment</h2>
+    <p class="subtitle">Select your preferred payment method</p>
+    
+    <div id="dropin-container">
+        <div class="loader"></div>
+        <p style="text-align:center; font-size:12px; color:#666;">Loading Payment Options...</p>
+    </div>
+
+    <span class="secure-icon">🔒 100% Secure via Cashfree Payments</span>
   </div>
 
   <script>
@@ -191,10 +203,29 @@ function paymentUI(sessionId) {
       mode: "production" 
     });
 
-    cashfree.checkout({
-      paymentSessionId: "${sessionId}",
-      redirectTarget: "_self" 
+    const sessionId = "${sessionId}";
+
+    // Drop-in Component Initialization
+    // यह अपने आप मोबाइल पर UPI Apps और डेस्कटॉप पर QR Code/Cards दिखाएगा
+    cashfree.initialiseDropin(document.getElementById("dropin-container"), {
+      paymentSessionId: sessionId,
+      components: [
+        "order-details",
+        "card",
+        "upi",
+        "app",
+        "netbanking"
+      ],
+      style: {
+        backgroundColor: "#ffffff",
+        color: "#111111",
+        fontFamily: "sans-serif",
+        fontSize: "14px",
+        errorColor: "#ff0000",
+        theme: "light", 
+      }
     });
+
   </script>
 </body>
 </html>
@@ -273,5 +304,3 @@ async function cashfreeWebhook(req, env) {
     return new Response("Webhook Error", { status: 500 });
   }
 }
-
-
