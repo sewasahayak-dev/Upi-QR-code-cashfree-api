@@ -15,7 +15,7 @@ export default {
 
     // ============================================================
     // 1. FAST PAY LINK (No UI - Direct Redirect)
-    // Usage: /pay-link?amount=100&phone=9999999999
+    // Usage: /pay-link?amount=100&phone=9999999999&link_purpose=...
     // ============================================================
     if (url.pathname === "/pay-link" && req.method === "GET") {
       return handleDirectRedirect(url, env);
@@ -41,25 +41,22 @@ export default {
 };
 
 /* -------------------------------------------------------------------------- */
-/* CORE LOGIC FUNCTIONS                             */
+/* CORE LOGIC FUNCTIONS                                                     */
 /* -------------------------------------------------------------------------- */
 
 async function handleDirectRedirect(url, env) {
   try {
     const amount = Number(url.searchParams.get("amount"));
     const phone = url.searchParams.get("phone");
-    
-    // अगर यूजर ने return_url नहीं दिया, तो Google पर भेज दो (Error से बचने के लिए)
+    const linkPurpose = url.searchParams.get("link_purpose") || `Payment from ${phone}`;
     const returnUrl = url.searchParams.get("return_url") || "https://www.google.com";
 
     if (!amount || !phone) {
       return new Response("Error: Please provide 'amount' and 'phone'", { status: 400 });
     }
 
-    // 1. Unique Link ID बनाओ
     const linkId = "LNK_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
 
-    // 2. Cashfree API को कॉल करो (Create Payment Link)
     const payload = {
       customer_details: {
         customer_phone: phone.replace(/\D/g, ''),
@@ -68,8 +65,9 @@ async function handleDirectRedirect(url, env) {
       link_amount: amount,
       link_currency: "INR",
       link_id: linkId,
+      link_purpose: linkPurpose, // This is the new required field
       link_meta: {
-        return_url: returnUrl // Cashfree इसके पीछे ?link_id=... खुद लगा देगा
+        return_url: returnUrl 
       },
       link_notify: {
         send_sms: false,
@@ -90,14 +88,15 @@ async function handleDirectRedirect(url, env) {
 
     const data = await response.json();
 
-    // 3. अगर लिंक बन गया, तो Browser को Redirect करो (302 Found)
     if (data.link_url) {
       return Response.redirect(data.link_url, 302);
     } else {
+      console.error("Cashfree Error:", data);
       return new Response("Cashfree Error: " + JSON.stringify(data), { status: 500 });
     }
 
   } catch (err) {
+    console.error("Server Error:", err);
     return new Response("Server Error: " + err.message, { status: 500 });
   }
 }
