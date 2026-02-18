@@ -156,7 +156,7 @@ async function createOrderAPI(req, env) {
 }
 
 /* =========================================================
-   3. PAYMENT UI (DEBUG MODE + ERROR ALERT)
+   3. PAYMENT UI (FINAL FIXED - COMPONENTS MODE)
 ========================================================= */
 function paymentUI(sessionId) {
   const html = `
@@ -165,68 +165,102 @@ function paymentUI(sessionId) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complete Payment</title>
+  <title>Pay Securely</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f1f3f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-    .card { background: white; width: 100%; max-width: 400px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-    h2 { margin: 10px 0 5px; color: #2874f0; }
+    .card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+    h2 { margin-bottom: 5px; color: #2874f0; } /* Flipkart Blue */
+    p { color: #878787; font-size: 14px; margin-bottom: 30px; }
     
-    /* Loader Container */
-    #dropin-container { min-height: 300px; margin-top: 20px; }
+    /* UPI Button Containers */
+    #mobile-view, #desktop-view { width: 100%; }
+    #upi-intent-btn { width: 100%; margin-top: 20px; }
+    #qr-container { margin: 0 auto; display: flex; justify-content: center; }
     
-    .error-msg { color: red; font-size: 12px; margin-top: 10px; display: none; }
+    .divider { margin: 20px 0; border-top: 1px solid #eee; }
+    .fallback-link { font-size: 12px; color: #2874f0; text-decoration: none; cursor: pointer; }
+    
+    /* Error Message */
+    #error-box { color: red; font-size: 12px; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>Complete Payment</h2>
-    <p style="color:#666; font-size:14px;">Select your preferred payment method</p>
-    
-    <div id="dropin-container">
-        </div>
-    
-    <p id="error-text" class="error-msg"></p>
-    <p style="font-size:10px; color:green; margin-top:20px;">🔒 100% Secure via Cashfree Payments</p>
+    <h2>Total Payable</h2>
+    <p>Secure Payment via UPI</p>
+
+    <div id="mobile-view" style="display:none;">
+      <div id="upi-intent-btn"></div>
+      <p style="font-size: 12px; margin-top: 10px; color:#666;">Tap above to pay with PhonePe / GPay</p>
+    </div>
+
+    <div id="desktop-view" style="display:none;">
+      <div id="qr-container"></div>
+      <p style="margin-top: 15px; font-size:12px;">Scan with any UPI App to Pay</p>
+    </div>
+
+    <p id="error-box"></p>
+
+    <div class="divider"></div>
+    <a onclick="openFullPage()" class="fallback-link">More Payment Options (Card/Netbanking)</a>
   </div>
 
   <script>
+    const sessionId = "${sessionId}";
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     try {
-        // 👇 IMPORTANT: अगर आप Test Keys use कर रहे हैं तो "sandbox" रखें
-        // अगर Real Money Keys use कर रहे हैं तो "production" करें
+        // 👇 NOTE: अगर अभी भी Error आए, तो "sandbox" को "production" कर दें
         const cashfree = Cashfree({
             mode: "sandbox" 
         });
 
-        const sessionId = "${sessionId}";
+        if (isMobile) {
+            // --- MOBILE: SHOW BUTTON ---
+            document.getElementById('mobile-view').style.display = 'block';
+            
+            // यह बटन Flipkart जैसा दिखेगा
+            const upiComponent = cashfree.create("upiApp", {
+                values: {
+                    buttonText: "PAY NOW VIA UPI",
+                    buttonIcon: true
+                },
+                style: {
+                    fontSize: "16px",
+                    fontFamily: "sans-serif",
+                    color: "#ffffff",
+                    backgroundColor: "#fb641b", // Flipkart Orange
+                    borderRadius: "4px",
+                    padding: "12px",
+                    fontWeight: "bold"
+                }
+            });
+            upiComponent.mount("#upi-intent-btn");
 
-        // Initialize Drop-in
-        cashfree.initialiseDropin(document.getElementById("dropin-container"), {
-            paymentSessionId: sessionId,
-            components: [
-                "order-details",
-                "card",
-                "upi",
-                "app",
-                "netbanking"
-            ],
-            style: {
-                backgroundColor: "#ffffff",
-                color: "#111111",
-                fontFamily: "sans-serif",
-                fontSize: "14px",
-                errorColor: "#ff0000",
-                theme: "light", 
-            }
-        });
+        } else {
+            // --- DESKTOP: SHOW QR CODE ---
+            document.getElementById('desktop-view').style.display = 'block';
+
+            const qrComponent = cashfree.create("upiQr", {
+                values: { size: "200px" }
+            });
+            qrComponent.mount("#qr-container");
+        }
 
     } catch (err) {
-        // अगर कोई Error आया तो Alert में दिखाओ
-        document.getElementById("dropin-container").innerHTML = "⚠️ Payment Load Failed";
-        document.getElementById("error-text").style.display = "block";
-        document.getElementById("error-text").innerText = err.message;
-        alert("Error: " + err.message);
+        document.getElementById("error-box").style.display = "block";
+        document.getElementById("error-box").innerText = "Error: " + err.message;
+    }
+
+    // Fallback Function
+    function openFullPage() {
+      const cfFallback = Cashfree({ mode: "sandbox" });
+      cfFallback.checkout({
+        paymentSessionId: sessionId,
+        redirectTarget: "_self"
+      });
     }
   </script>
 </body>
@@ -237,6 +271,7 @@ function paymentUI(sessionId) {
     headers: { "Content-Type": "text/html" }
   });
 }
+
 
 /* =========================================================
    4. CHECK STATUS API
