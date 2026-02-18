@@ -156,76 +156,78 @@ async function createOrderAPI(req, env) {
 }
 
 /* =========================================================
-   3. PAYMENT UI (UPDATED: FLIPKART STYLE SEAMLESS)
+   3. PAYMENT UI (DEBUG MODE + ERROR ALERT)
 ========================================================= */
 function paymentUI(sessionId) {
-  // यह HTML Flipkart/Meesho जैसा अनुभव देने के लिए डिजाईन किया गया है
   const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Secure Payment</title>
+  <title>Complete Payment</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f3f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-    .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-    h2 { margin: 10px 0 5px; color: #2874f0; font-size: 20px; }
-    .subtitle { color: #878787; font-size: 13px; margin-bottom: 25px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f1f3f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .card { background: white; width: 100%; max-width: 400px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+    h2 { margin: 10px 0 5px; color: #2874f0; }
     
-    /* Loading Spinner */
-    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #2874f0; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    /* Dropin Container Style */
-    #dropin-container { min-height: 300px; margin-top: 20px; text-align: left; }
+    /* Loader Container */
+    #dropin-container { min-height: 300px; margin-top: 20px; }
     
-    .secure-icon { color: green; font-size: 12px; margin-top: 15px; display: block; }
+    .error-msg { color: red; font-size: 12px; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
 
   <div class="card">
     <h2>Complete Payment</h2>
-    <p class="subtitle">Select your preferred payment method</p>
+    <p style="color:#666; font-size:14px;">Select your preferred payment method</p>
     
     <div id="dropin-container">
-        <div class="loader"></div>
-        <p style="text-align:center; font-size:12px; color:#666;">Loading Payment Options...</p>
-    </div>
-
-    <span class="secure-icon">🔒 100% Secure via Cashfree Payments</span>
+        </div>
+    
+    <p id="error-text" class="error-msg"></p>
+    <p style="font-size:10px; color:green; margin-top:20px;">🔒 100% Secure via Cashfree Payments</p>
   </div>
 
   <script>
-    const cashfree = Cashfree({
-      mode: "production" 
-    });
+    try {
+        // 👇 IMPORTANT: अगर आप Test Keys use कर रहे हैं तो "sandbox" रखें
+        // अगर Real Money Keys use कर रहे हैं तो "production" करें
+        const cashfree = Cashfree({
+            mode: "sandbox" 
+        });
 
-    const sessionId = "${sessionId}";
+        const sessionId = "${sessionId}";
 
-    // Drop-in Component Initialization
-    // यह अपने आप मोबाइल पर UPI Apps और डेस्कटॉप पर QR Code/Cards दिखाएगा
-    cashfree.initialiseDropin(document.getElementById("dropin-container"), {
-      paymentSessionId: sessionId,
-      components: [
-        "order-details",
-        "card",
-        "upi",
-        "app",
-        "netbanking"
-      ],
-      style: {
-        backgroundColor: "#ffffff",
-        color: "#111111",
-        fontFamily: "sans-serif",
-        fontSize: "14px",
-        errorColor: "#ff0000",
-        theme: "light", 
-      }
-    });
+        // Initialize Drop-in
+        cashfree.initialiseDropin(document.getElementById("dropin-container"), {
+            paymentSessionId: sessionId,
+            components: [
+                "order-details",
+                "card",
+                "upi",
+                "app",
+                "netbanking"
+            ],
+            style: {
+                backgroundColor: "#ffffff",
+                color: "#111111",
+                fontFamily: "sans-serif",
+                fontSize: "14px",
+                errorColor: "#ff0000",
+                theme: "light", 
+            }
+        });
 
+    } catch (err) {
+        // अगर कोई Error आया तो Alert में दिखाओ
+        document.getElementById("dropin-container").innerHTML = "⚠️ Payment Load Failed";
+        document.getElementById("error-text").style.display = "block";
+        document.getElementById("error-text").innerText = err.message;
+        alert("Error: " + err.message);
+    }
   </script>
 </body>
 </html>
